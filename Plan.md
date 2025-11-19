@@ -4,17 +4,18 @@
 
 This plan defines the exact order in which any builder LLM MUST implement the Virtual World Backend.
 
-It MUST be followed step-by-step.
-It MUST NOT be skipped, re-ordered, merged, or paraphrased.
+It MUST be followed step-by-step.  
+It MUST NOT be skipped, re-ordered, merged, or paraphrased.  
 It MUST be read together with:
 
-- MASTER_SPEC.md  
-- docs/BUILDER_CONTRACT.md  
-- docs/CODEX_DEV_INSTRUCTIONS.md  
-- docs/ROUTER_PROMPT.txt  
-- docs/cognition_flow.md  
-- docs/numeric_semantic_mapping.md  
-- docs/test_suite_outline.md  
+- MASTER_SPEC.md — core world architecture, psychology, logic, determinism, and user rules.  
+- Architecture.md — system topology, data stores (Postgres, Redis, Qdrant), and when/how they MAY be used.  
+- docs/BUILDER_CONTRACT.md — mandatory development behaviour.  
+- docs/CODEX_DEV_INSTRUCTIONS.md — standing coding guidelines.  
+- docs/ROUTER_PROMPT.txt — task classification and routing rules.  
+- docs/cognition_flow.md — full cognition pipeline.  
+- docs/numeric_semantic_mapping.md — numeric → semantic mapping rules.  
+- docs/test_suite_outline.md — required test categories.  
 
 This is the **canonical build order**.  
 Every coding session MUST begin by reading this file.
@@ -31,6 +32,7 @@ No UI implementation is allowed until Phase 10.
 
 0.1 Place the following at repo root:
 - MASTER_SPEC.md  
+- Architecture.md  
 - Plan.md  
 
 0.2 Place the following under `/docs`:
@@ -43,15 +45,20 @@ No UI implementation is allowed until Phase 10.
 
 0.3 Create base folder structure:
 
-/backend
-/backend/world
-/backend/autonomy
-/backend/cognition
-/backend/renderer
-/backend/personality
-/backend/persistence
-/backend/tests
-/docs
+/backend  
+/backend/world  
+/backend/autonomy  
+/backend/cognition  
+/backend/renderer  
+/backend/personality  
+/backend/persistence  
+/backend/mapping  
+/backend/gateway  
+/backend/config  
+/backend/utils  
+/tests  
+/docs  
+/data  
 
 0.4 Create a minimal Railway-ready backend scaffold:
 - A simple HTTP server with a single `GET /health` endpoint.
@@ -61,15 +68,21 @@ No UI implementation is allowed until Phase 10.
   - no Docker-specific weirdness
 
 0.5 Confirm builder LLM contract:
-- Read BUILDER_CONTRACT.md
-- Acknowledge all MUST/MUST NOT rules
-- Confirm backend-only mode
+- Read MASTER_SPEC.md  
+- Read Architecture.md  
+- Read BUILDER_CONTRACT.md  
+- Read Plan.md  
+- Acknowledge all MUST/MUST NOT rules  
+- Confirm backend-only mode  
 
 ======================================================================
 # PHASE 1 — DOMAIN MODEL & PERSISTENCE LAYER
 ======================================================================
 
 **Goal:** Define and persist all structures required for the world to exist in deterministic form.
+
+Postgres IS the authoritative state store.  
+Redis and Qdrant MUST NOT be introduced before Phase 9. They are optimisation layers only.
 
 ### Tasks:
 
@@ -89,7 +102,7 @@ No UI implementation is allowed until Phase 10.
 - biographical memories  
 - location  
 - status flags  
-- last cognition timestamp (cooldown)
+- last cognition timestamp (cooldown)  
 
 1.2 Define world schema including:
 - time  
@@ -99,7 +112,7 @@ No UI implementation is allowed until Phase 10.
 - event queue  
 
 1.3 Implement persistence layer:
-- Railway-managed Postgres  
+- Railway-managed Postgres ONLY  
 - Clean interfaces for:
   - load_agent  
   - save_agent  
@@ -108,13 +121,14 @@ No UI implementation is allowed until Phase 10.
   - query_relationships  
   - add_memory  
   - list_agents_in_location  
-- No business logic allowed here.
+- No business logic allowed here.  
+- NO Redis, NO Qdrant, NO other stores in this phase.
 
 1.4 Write persistence tests:
 - CRUD tests for all state  
 - bounds enforcement  
 - schema validation  
-- persistence across restart
+- persistence across restart  
 
 ======================================================================
 # PHASE 1.5 — PERSONALITY COMPILER & CHARACTER INITIALIZATION
@@ -127,20 +141,20 @@ This phase MUST precede Autonomy Engine development.
 ### Tasks:
 
 1.5.1 Implement Personality Template Library:
-- Load template definitions from structured files.
-- Provide deterministic merge of templates.
+- Load template definitions from structured files.  
+- Provide deterministic merge of templates.  
 
 1.5.2 Implement Personality Compiler:
 - template mix → personality kernel  
 - kernel → stable personality summary  
 - kernel → domain summaries  
 - kernel + state → dynamic activation packet  
-- store cached summaries  
+- store cached summaries in Postgres  
 - forbid raw fingerprint text from being passed to LLM  
 
 1.5.3 Implement Fingerprint Interpreter (optional):
 - For agents with fingerprints (e.g. Rebecca),  
-  convert fingerprint JSON → weighted modifiers → kernel adjustments → summary augmentations.
+  convert fingerprint JSON → weighted modifiers → kernel adjustments → summary augmentations.  
 
 1.5.4 Implement Character Initialization Pipeline:
 - For each agent in cast list:
@@ -156,13 +170,13 @@ This phase MUST precede Autonomy Engine development.
 - summary determinism  
 - caching behaviour  
 - integration with cognition & renderer context building  
-- fingerprint interpretation (if applicable)
+- fingerprint interpretation (if applicable)  
 
 ======================================================================
 # PHASE 2 — WORLD ENGINE
 ======================================================================
 
-**Goal:** Implement time, physical environment, and core world mechanics.
+**Goal:** Implement time, physical environment, core world mechanics, calendars, and unexpected events.
 
 ### Tasks:
 
@@ -177,17 +191,39 @@ This phase MUST precede Autonomy Engine development.
 - world events  
 - scheduled events  
 - asynchronous events  
-- unexpected events per MASTER_SPEC  
+- unexpected events per MASTER_SPEC (incursions derived from world state)
 
 2.4 Implement world continuity logic:
 - off-screen life  
 - independent agent movement  
 - agent tasks and routines  
 
-2.5 Tests:
+2.5 Implement Calendar and Obligation System:
+- Create world-state structures for agent calendars, obligations, and long-term plans.
+- Implement deterministic schedule evaluation per tick.
+- Generate world events when:
+  - an obligation becomes due,
+  - a scheduled event begins,
+  - a preparatory period begins,
+  - a commitment is missed.
+- Ensure calendars are stored as world data, NOT as drives, mood, relationships, or arcs.
+
+2.6 Implement Unexpected Event (Incursion) Framework:
+- Ensure unexpected events arise from:
+  - the world clock,
+  - agents' calendars and routines,
+  - environmental processes,
+  - communication channels.
+- Represent incursions as ordinary world events whose “unexpectedness” is from the perceiver’s POV.
+- Do NOT introduce special-case psychology for incursions.
+- Do NOT enumerate a finite set of incursion “types.”
+
+2.7 Tests:
 - deterministic ticks  
 - correct event ordering  
-- world continuity with/without user presence
+- world continuity with/without user presence  
+- correctness of calendar event generation  
+- correctness of unexpected event (incursion) generation from world state  
 
 ======================================================================
 # PHASE 3 — AUTONOMY ENGINE (NUMERIC PSYCHOLOGY)
@@ -224,12 +260,19 @@ This phase MUST precede Autonomy Engine development.
 
 3.9 Initialize personality activation state from kernel each tick.
 
-3.10 Write autonomy tests:
+3.10 Ensure that:
+- calendar/obligation events feed into decision pressure and intention logic,
+- unexpected events influence drives, mood, arcs, and relationships via deterministic rules,
+- NO new psychological variables are created for calendars or incursions.
+
+3.11 Write autonomy tests:
 - numeric updates  
 - relationship drift  
 - arc behaviour  
 - memory creation thresholds  
 - personality activation behaviour  
+- calendar/obligation influence on intentions  
+- unexpected-event influence on decision pressure  
 
 ======================================================================
 # PHASE 4 — NUMERIC ↔ SEMANTIC MAPPING LAYER
@@ -255,7 +298,11 @@ This phase MUST precede Autonomy Engine development.
 
 4.3 Ensure NO raw numeric values ever reach LLM.
 
-4.4 Write tests:
+4.4 Ensure that:
+- calendar and obligation information is exposed semantically as world facts,
+- unexpected events are exposed semantically as perceptual interruptions or context.
+
+4.5 Write tests:
 - mapping determinism  
 - bucket coverage  
 - no numeric leakage into LLM payloads  
@@ -283,9 +330,11 @@ This phase MUST precede Autonomy Engine development.
 - intentions  
 - personality summaries (stable + domain + activation)  
 - event context  
+- relevant calendar/obligation context  
+- relevant unexpected-event context (when meaningful)
 
 5.5 Implement LLM wrapper:
-- use reasoning model (not adult model)
+- use reasoning model (not adult model)  
 - enforce schema  
 - validate output  
 
@@ -298,6 +347,7 @@ This phase MUST precede Autonomy Engine development.
 - correct context packets  
 - schema validation  
 - determinism of post-cognition numeric updates  
+- correct inclusion of calendar/obligation and unexpected-event context when appropriate  
 
 ======================================================================
 # PHASE 6 — RENDERER SERVICE WRAPPER
@@ -336,6 +386,12 @@ This phase MUST precede Autonomy Engine development.
 - correct routing (normal model vs adult model)  
 - deterministic mapping of renderer classification  
 
+6.6 Integrate Unexpected Event Rendering:
+- Ensure renderer presents unexpected events (incursions) as perceptual interruptions (e.g., knocks, arrivals, messages).
+- Ensure renderer follows APPENDIX I for how incursions are expressed.
+- Ensure renderer surfaces calendar/obligation context through perception (e.g., clocks, calendars, dialogue, body language).
+- Ensure renderer does NOT assign internal psychological states unless coming from cognition output.
+
 ======================================================================
 # PHASE 7 — GATEWAY API
 ======================================================================
@@ -366,10 +422,13 @@ This phase MUST precede Autonomy Engine development.
 - rendering correctness  
 
 ======================================================================
-# PHASE 8 — RAILWAY DEPLOYMENT
+# PHASE 8 — RAILWAY DEPLOYMENT (POSTGRES-ONLY)
 ======================================================================
 
-**Goal:** Deploy the backend to Railway as a fully operational service.
+**Goal:** Deploy the backend to Railway as a fully operational service using Postgres as the ONLY data store.
+
+Redis and Qdrant MUST NOT be wired in this phase.  
+They belong to the optimisation/memory phase (Phase 9).
 
 ### Tasks:
 
@@ -389,14 +448,14 @@ This phase MUST precede Autonomy Engine development.
 - renderer call  
 
 ======================================================================
-# PHASE 9 — HARDENING & FULL TEST SUITE IMPLEMENTATION
+# PHASE 9 — HARDENING, CACHING, AND VECTOR MEMORY
 ======================================================================
 
-**Goal:** Achieve full test coverage and stability.
+**Goal:** Achieve full test coverage, stability, and introduce Redis + Qdrant as optimisation and memory layers without changing core logic semantics.
 
 ### Tasks:
 
-9.1 Implement every test category in test_suite_outline.md.
+9.1 Implement every test category in `docs/test_suite_outline.md`.
 
 9.2 Add regression tests where bugs were found.
 
@@ -405,15 +464,71 @@ This phase MUST precede Autonomy Engine development.
 9.4 Optimize:
 - prompt size  
 - semantic context size  
-- caching systems  
+
+
+### 9.5 Introduce Redis caching layer (NON-AUTHORITATIVE CACHE ONLY)
+
+- Create a Redis service in the same Railway project.
+- Add `REDIS_URL` (or equivalent) to backend env vars.
+
+Implement caching modules for:
+
+- LLM response caching (optional, safe keys only).  
+- renderer perception context (last render snapshots, small TTL).  
+- cognition cooldown and salience caches.  
+- recent unexpected-event triggers (short TTL) for performance-only optimisation.
+
+Constraints:
+
+- Redis is NEVER the source of truth for world or psychology state.  
+- On Redis failure, the system falls back to Postgres-only behaviour.  
+- Core logic semantics MUST remain identical with or without Redis.
+
+Add tests:
+
+- cache hit/miss behaviour  
+- correctness of fallbacks  
+- determinism of behaviour with and without cache  
+
+
+### 9.6 Introduce Qdrant vector memory layer (EPISODIC + BIOGRAPHICAL RETRIEVAL)
+
+- Create a Qdrant service in the same Railway project (custom container).  
+- Add env vars:
+  - `QDRANT_URL`
+  - `QDRANT_API_KEY` (if auth enabled)
+
+Implement embedding + vector storage for:
+
+- episodic memory summaries  
+- episodic memories that originated as unexpected events  
+- biographical memory summaries  
+- (optionally) stable personality summaries  
+
+Integrate Qdrant into memory retrieval:
+
+- semantic similarity search combined with recency + salience from Postgres.  
+
+Constraints:
+
+- Postgres remains the authoritative store for all memories.  
+- Qdrant is used ONLY for retrieval ranking and similarity.  
+- No unique information MUST exist only in Qdrant.  
+
+Add tests:
+
+- retrieval quality (sanity checks).  
+- deterministic retrieval ordering given fixed embeddings.  
+- failover behaviour if Qdrant is unavailable.  
 
 ======================================================================
 # PHASE 10 — UI PHASE (LOCKED UNTIL BACKEND IS COMPLETE)
 ======================================================================
 
-**Goal:** Build UI **only after** backend is stable and deployed.
+**Goal:** Build UI **only after** backend is stable, deployed, and optimised.
 
 ### Tasks:
+
 10.1 Create separate UI spec.  
 10.2 NEVER modify backend to fit UI preferences.  
 10.3 UI consumes Gateway API only.  
