@@ -2,8 +2,14 @@ import datetime
 import asyncio
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from backend.persistence.repo import WorldRepo, AgentRepo
-from backend.persistence.models import WorldModel, EventModel, AgentModel, CalendarModel
+from backend.persistence.models import WorldModel, EventModel, AgentModel, CalendarModel, LocationModel
+
+from backend.world.incursions import IncursionGenerator
+from backend.world.continuity import ContinuityEngine
 
 class WorldEngine:
     def __init__(self, session: AsyncSession):
@@ -11,6 +17,8 @@ class WorldEngine:
         self.world_repo = WorldRepo(session)
         self.agent_repo = AgentRepo(session)
         self.world_id = 1 # Assuming single world for now
+        self.incursion_gen = IncursionGenerator()
+        self.continuity = ContinuityEngine()
 
     async def get_or_create_world(self) -> WorldModel:
         world = await self.world_repo.get_world(self.world_id)
@@ -43,11 +51,37 @@ class WorldEngine:
         # 3. Generate Unexpected Events (Appendix I)
         await self._generate_incursions(world)
         
-        # 4. Process Event Queue (Basic FIFO for now)
+        # 4. Process Continuity (Off-screen movement)
+        await self._process_continuity(world)
+        
+        # 5. Process Event Queue (Basic FIFO for now)
         # In a real loop, we might process pending events here.
         
         await self.world_repo.save_world(world)
         return world
+
+    async def _process_continuity(self, world: WorldModel):
+        """
+        Updates off-screen agents based on deterministic routines.
+        """
+        # Fetch all agents
+        # Optimization: In real system, fetch only agents not in active scene.
+        # For now, we check all.
+        stmt = select(AgentModel)
+        result = await self.session.execute(stmt)
+        agents = result.scalars().all()
+        
+        # Build location map (Name -> ID)
+        # We need to fetch locations to map routine names to IDs
+        # Assuming locations are loaded or we fetch them
+        loc_stmt = select(LocationModel).where(LocationModel.world_id == world.id)
+        loc_res = await self.session.execute(loc_stmt)
+        locations = {loc.name: loc.id for loc in loc_res.scalars().all()}
+        
+        for agent in agents:
+            target_id = self.continuity.update_agent_continuity(agent, world, locations)
+            if target_id:
+                await self.move_agent(agent.id, target_id)
 
     async def _process_calendars(self, world: WorldModel):
         """
@@ -109,21 +143,15 @@ class WorldEngine:
         """
         Generates unexpected events based on world state.
         """
-        # Deterministic check for random incursions (e.g. ambient noise)
-        # Seeded by tick + world_id
-        import random
-        random.seed(world.current_tick + self.world_id)
+        # Fetch agents for context (needed for incursion logic)
+        stmt = select(AgentModel)
+        result = await self.session.execute(stmt)
+        agents = result.scalars().all()
         
-        if random.random() < 0.01: # 1% chance per tick of ambient event
-            await self.world_repo.add_event({
-                "world_id": world.id,
-                "type": "ambient",
-                "description": "A distant siren wails.",
-                "tick": world.current_tick,
-                "timestamp": world.current_time,
-                "source_entity_id": "system",
-                "target_entity_id": "all"
-            })
+        incursions = self.incursion_gen.generate_incursions(world, agents)
+        
+        for inc_data in incursions:
+            await self.world_repo.add_event(inc_data)
 
     async def move_agent(self, agent_id: int, target_location_id: int):
         agent = await self.agent_repo.get_agent_by_id(agent_id)
