@@ -1,6 +1,8 @@
 import httpx
 from fastapi import FastAPI, HTTPException
 from backend.config.settings import settings
+from backend.persistence.database import Base
+from backend.persistence.models import *  # noqa
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
@@ -19,6 +21,17 @@ async def get_db_engine():
             max_overflow=20
         )
     return _db_engine
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables on startup."""
+    try:
+        engine = await get_db_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"Warning: Failed to initialize database tables: {str(e)}")
+        # Don't fail startup, just warn
 
 @app.get("/health")
 async def health_check():
