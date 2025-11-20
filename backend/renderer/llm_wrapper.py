@@ -1,7 +1,7 @@
 """
 LLM Renderer Wrapper
 
-Calls LLM to generate perception-based narrative.
+Calls LLM to generate perception-based narrative via Venice.ai API.
 Per Plan.md §6.4 and MASTER_SPEC §8 (Renderer Service).
 
 "Implement LLM wrapper enforcing:
@@ -10,19 +10,17 @@ Per Plan.md §6.4 and MASTER_SPEC §8 (Renderer Service).
 - no invented events not in world state
 - no user internal state narration
 - deterministic model selection via RendererRouter"
+
+Uses Venice.ai API (https://api.venice.ai/api/v1) with:
+- qwen3-4b: Standard reasoning model
+- venice-uncensored: Adult-capable model for explicit content
 """
 
 import json
 import os
+import httpx
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-
-# Optional import: anthropic client will be initialized if available
-try:
-    import anthropic
-    HAS_ANTHROPIC = True
-except ImportError:
-    HAS_ANTHROPIC = False
 
 from backend.mapping.renderer_context import RendererContext
 from backend.renderer.router import RendererRouter, RenderingRouting
@@ -130,20 +128,40 @@ class LLMRendererWrapper:
     - deterministic model selection via RendererRouter"
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+class LLMRendererWrapper:
+    """
+    Wrapper for calling Venice.ai LLM to render narrative from perception context.
+    
+    Per Plan.md §6.4:
+    "Implement LLM wrapper enforcing:
+    - perception-only rendering
+    - second-person POV (user) or first-person POV (agents)
+    - no invented events not in world state
+    - no user internal state narration
+    - deterministic model selection via RendererRouter"
+    
+    Uses Venice.ai API endpoint: https://api.venice.ai/api/v1
+    """
+    
+    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://api.venice.ai/api/v1"):
         """
-        Initialize renderer wrapper.
+        Initialize renderer wrapper for Venice.ai.
         
         Args:
-            api_key: Optional Anthropic API key. If not provided, uses ANTHROPIC_API_KEY env var.
+            api_key: Optional Venice API key. If not provided, uses VENICE_API_KEY env var.
+            base_url: Venice API base URL (default: https://api.venice.ai/api/v1)
         """
-        if not HAS_ANTHROPIC:
-            self.api_key = None
-            self.client = None
-            return
-        
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=self.api_key) if self.api_key else None
+        self.api_key = api_key or os.environ.get("VENICE_API_KEY")
+        self.base_url = base_url
+        self.http_client = httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        )
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.http_client.aclose()
     
     @staticmethod
     def prepare_context_prompt(renderer_context: RendererContext) -> str:
@@ -189,14 +207,14 @@ class LLMRendererWrapper:
         
         return prompt
     
-    def render(
+    async def render(
         self,
         renderer_context: RendererContext,
         routing: Optional[RenderingRouting] = None,
         max_tokens: int = 300
     ) -> RendererOutput:
         """
-        Call LLM to render narrative from perception context.
+        Call Venice.ai LLM to render narrative from perception context.
         
         Args:
             renderer_context: RendererContext from Phase 4
@@ -208,10 +226,10 @@ class LLMRendererWrapper:
         
         Raises:
             ValueError: If no API key configured
-            Exception: If LLM call fails
+            httpx.HTTPError: If LLM call fails
         """
-        if not self.client:
-            raise ValueError("No Anthropic API key configured. Set ANTHROPIC_API_KEY environment variable.")
+        if not self.api_key:
+            raise ValueError("No Venice API key configured. Set VENICE_API_KEY environment variable.")
         
         # Compute routing if not provided
         if routing is None:
@@ -231,26 +249,42 @@ class LLMRendererWrapper:
         # Prepare context prompt
         context_prompt = self.prepare_context_prompt(renderer_context)
         
-        # Call LLM
-        message = self.client.messages.create(
-            model=routing.target_model.value,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=[
-                {
-                    "role": "user",
-                    "content": context_prompt
+        # Call Venice.ai API
+        try:
+            response = await self.http_client.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": routing.target_model.value,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": context_prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": max_tokens,
                 }
-            ]
-        )
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Extract narrative from response
+            if "choices" in data and len(data["choices"]) > 0:
+                narrative = data["choices"][0].get("message", {}).get("content", "")
+            else:
+                narrative = ""
+            
+            # Extract token usage
+            usage = data.get("usage", {})
+            input_tokens = usage.get("prompt_tokens", 0)
+            output_tokens = usage.get("completion_tokens", 0)
+            
+            return RendererOutput(
+                narrative=narrative,
+                model_used=routing.target_model.value,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                was_filtered=False
+            )
         
-        # Extract narrative
-        narrative = message.content[0].text if message.content else ""
-        
-        return RendererOutput(
-            narrative=narrative,
-            model_used=routing.target_model.value,
-            input_tokens=message.usage.input_tokens,
-            output_tokens=message.usage.output_tokens,
-            was_filtered=False
-        )
+        except httpx.HTTPError as e:
+            raise Exception(f"Venice.ai API error: {str(e)}")

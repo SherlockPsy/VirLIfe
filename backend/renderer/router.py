@@ -26,10 +26,10 @@ class SceneClassification(Enum):
 
 
 class RendererModel(Enum):
-    """Available renderer models."""
-    REASONING_STANDARD = "claude-3-7-sonnet-20250219"      # Main reasoning model
-    ADULT_CAPABLE = "claude-3-5-sonnet-adult-20250219"     # Adult-capable model (if available)
-    FALLBACK = "claude-3-7-sonnet-20250219"                # Fallback
+    """Available renderer models via Venice.ai."""
+    QWEN3_4B = "qwen3-4b"              # Standard reasoning model
+    VENICE_UNCENSORED = "venice-uncensored"  # Adult-capable model
+    DEFAULT = "qwen3-4b"               # Fallback to qwen3
 
 
 @dataclass
@@ -197,16 +197,16 @@ class RendererRouter:
         if classification == SceneClassification.SEXUAL:
             if allow_adult_content:
                 return RenderingRouting(
-                    target_model=RendererModel.ADULT_CAPABLE,
+                    target_model=RendererModel.VENICE_UNCENSORED,
                     scene_classification=classification,
                     should_use_adult_content_handling=True,
                     narrative_tone="explicit",
                     content_warnings="sexual content"
                 )
             else:
-                # User prefers non-explicit; use reasoning model with content filtering
+                # User prefers non-explicit; use qwen3 with content filtering
                 return RenderingRouting(
-                    target_model=RendererModel.REASONING_STANDARD,
+                    target_model=RendererModel.QWEN3_4B,
                     scene_classification=classification,
                     should_use_adult_content_handling=False,
                     narrative_tone="suggestive",
@@ -216,7 +216,7 @@ class RendererRouter:
         elif classification == SceneClassification.VIOLENT:
             # Violence typically uses standard model with content notes
             return RenderingRouting(
-                target_model=RendererModel.REASONING_STANDARD,
+                target_model=RendererModel.QWEN3_4B,
                 scene_classification=classification,
                 should_use_adult_content_handling=False,
                 narrative_tone="direct",
@@ -224,9 +224,9 @@ class RendererRouter:
             )
         
         elif classification == SceneClassification.EMOTIONAL:
-            # Emotional intensity uses reasoning model
+            # Emotional intensity uses standard model
             return RenderingRouting(
-                target_model=RendererModel.REASONING_STANDARD,
+                target_model=RendererModel.QWEN3_4B,
                 scene_classification=classification,
                 should_use_adult_content_handling=False,
                 narrative_tone="direct",
@@ -236,7 +236,7 @@ class RendererRouter:
         elif classification == SceneClassification.ROUTINE:
             # Routine events: minimal processing
             return RenderingRouting(
-                target_model=RendererModel.REASONING_STANDARD,
+                target_model=RendererModel.QWEN3_4B,
                 scene_classification=classification,
                 should_use_adult_content_handling=False,
                 narrative_tone="direct",
@@ -245,7 +245,7 @@ class RendererRouter:
         
         else:  # STANDARD
             return RenderingRouting(
-                target_model=RendererModel.REASONING_STANDARD,
+                target_model=RendererModel.QWEN3_4B,
                 scene_classification=classification,
                 should_use_adult_content_handling=False,
                 narrative_tone="direct",

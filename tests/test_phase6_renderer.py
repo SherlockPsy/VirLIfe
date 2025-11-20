@@ -320,17 +320,17 @@ class TestRendererRouter:
         assert classification in [SceneClassification.STANDARD, SceneClassification.SUGGESTIVE]
     
     def test_route_standard_scene_uses_reasoning_model(self):
-        """Test that standard scenes use reasoning model."""
+        """Test that standard scenes use qwen3 model."""
         routing = RendererRouter.route_rendering(
             event_description="They chat about work",
             event_type="interaction",
             perceiver_type="user"
         )
-        assert routing.target_model == RendererModel.REASONING_STANDARD
+        assert routing.target_model == RendererModel.QWEN3_4B
         assert routing.should_use_adult_content_handling is False
     
     def test_route_sexual_scene_with_adult_content_allowed(self):
-        """Test that sexual scenes route to adult model when allowed."""
+        """Test that sexual scenes route to venice-uncensored when allowed."""
         routing = RendererRouter.route_rendering(
             event_description="They kiss and embrace",
             event_type="interaction",
@@ -338,7 +338,7 @@ class TestRendererRouter:
             has_explicit_sexual_content=True,
             user_preferences={"allow_adult_content": True}
         )
-        assert routing.target_model == RendererModel.ADULT_CAPABLE
+        assert routing.target_model == RendererModel.VENICE_UNCENSORED
         assert routing.should_use_adult_content_handling is True
     
     def test_route_sexual_scene_with_adult_content_disallowed(self):
@@ -350,28 +350,28 @@ class TestRendererRouter:
             has_explicit_sexual_content=True,
             user_preferences={"allow_adult_content": False}
         )
-        assert routing.target_model == RendererModel.REASONING_STANDARD
+        assert routing.target_model == RendererModel.QWEN3_4B
         assert routing.should_use_adult_content_handling is False
         assert routing.narrative_tone == "suggestive"
     
     def test_route_violent_scene(self):
-        """Test that violent scenes use reasoning model with warnings."""
+        """Test that violent scenes use qwen3 with warnings."""
         routing = RendererRouter.route_rendering(
             event_description="They fight intensely",
             event_type="conflict",
             perceiver_type="user"
         )
-        assert routing.target_model == RendererModel.REASONING_STANDARD
+        assert routing.target_model == RendererModel.QWEN3_4B
         assert routing.content_warnings == "violence"
     
     def test_route_emotional_scene(self):
-        """Test that emotional scenes use reasoning model."""
+        """Test that emotional scenes use qwen3."""
         routing = RendererRouter.route_rendering(
             event_description="Rebecca cries",
             event_type="interaction",
             perceiver_type="user"
         )
-        assert routing.target_model == RendererModel.REASONING_STANDARD
+        assert routing.target_model == RendererModel.QWEN3_4B
     
     def test_route_routine_scene(self):
         """Test that routine scenes use standard processing."""
