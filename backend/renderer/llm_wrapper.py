@@ -14,16 +14,23 @@ Per Plan.md §6.4 and MASTER_SPEC §8 (Renderer Service).
 Uses Venice.ai API (https://api.venice.ai/api/v1) with:
 - qwen3-4b: Standard reasoning model
 - venice-uncensored: Adult-capable model for explicit content
+
+Redis Caching (Phase 9 integration):
+- Perception snapshots cached with 5-min TTL (ephemeral)
+- Graceful degradation: system works without Redis
+- Non-authoritative: Postgres perception data is source of truth
 """
 
 import json
 import os
+import hashlib
 import httpx
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
 from backend.mapping.renderer_context import RendererContext
 from backend.renderer.router import RendererRouter, RenderingRouting
+from backend.caching import get_redis_service
 
 
 @dataclass
@@ -216,6 +223,9 @@ class LLMRendererWrapper:
         """
         Call Venice.ai LLM to render narrative from perception context.
         
+        Integrates Redis caching for perception snapshots (5-min TTL).
+        Falls back gracefully if Redis unavailable.
+        
         Args:
             renderer_context: RendererContext from Phase 4
             routing: Optional routing decision from RendererRouter. If not provided, will compute.
@@ -239,6 +249,31 @@ class LLMRendererWrapper:
                 perceiver_type=renderer_context.perceiver_type,
                 has_explicit_sexual_content=renderer_context.scene_mode == "sexual"
             )
+        
+        # STEP 0: Check cache for this perception snapshot
+        redis_service = await get_redis_service()
+        cache_key = self._compute_context_hash(renderer_context)
+        cache_hit = False
+        
+        if redis_service and await redis_service.is_available():
+            try:
+                cached = await redis_service.get_perception_snapshot(
+                    perceiver_id=renderer_context.perceiver_id or "user",
+                    context_hash=cache_key
+                )
+                if cached:
+                    # Deserialize cached output
+                    cache_hit = True
+                    return RendererOutput(
+                        narrative=cached.get("narrative", ""),
+                        model_used=cached.get("model_used", "cached"),
+                        input_tokens=cached.get("input_tokens", 0),
+                        output_tokens=cached.get("output_tokens", 0),
+                        was_filtered=False
+                    )
+            except Exception as e:
+                # Graceful degradation: continue without cache
+                pass
         
         # Build system prompt
         system_prompt = RendererSystemPrompt.get_perception_only_system_prompt(
@@ -278,13 +313,62 @@ class LLMRendererWrapper:
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
             
-            return RendererOutput(
+            output = RendererOutput(
                 narrative=narrative,
                 model_used=routing.target_model.value,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 was_filtered=False
             )
+            
+            # STEP 1: Cache perception snapshot (5-min TTL)
+            if redis_service and await redis_service.is_available():
+                try:
+                    await redis_service.cache_perception_snapshot(
+                        perceiver_id=renderer_context.perceiver_id or "user",
+                        context_hash=cache_key,
+                        snapshot={
+                            "narrative": narrative,
+                            "model_used": routing.target_model.value,
+                            "input_tokens": input_tokens,
+                            "output_tokens": output_tokens
+                        }
+                    )
+                except Exception as e:
+                    # Graceful degradation: continue without cache
+                    pass
+            
+            return output
         
         except httpx.HTTPError as e:
             raise Exception(f"Venice.ai API error: {str(e)}")
+    
+    @staticmethod
+    def _compute_context_hash(renderer_context: RendererContext) -> str:
+        """
+        Compute a deterministic hash of the renderer context for cache keying.
+        
+        This hash identifies unique perception snapshots. Same context snapshot
+        should always produce the same hash, enabling cache hits for identical perceptions.
+        
+        Args:
+            renderer_context: The renderer context for the perception
+        
+        Returns:
+            A hex string hash of the context
+        """
+        # Create a deterministic string representation
+        # Use only fields that affect the narrative output
+        key_fields = {
+            "location": renderer_context.location,
+            "visible_entities": sorted(renderer_context.visible_entities or []),
+            "event_description": renderer_context.event_description,
+            "sensory_snapshot": renderer_context.sensory_snapshot,
+            "perceiver_type": renderer_context.perceiver_type,
+        }
+        
+        # Serialize to JSON with sorted keys for determinism
+        key_str = json.dumps(key_fields, sort_keys=True, default=str)
+        
+        # Return SHA256 hash
+        return hashlib.sha256(key_str.encode()).hexdigest()
