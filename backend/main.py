@@ -17,8 +17,10 @@ async def get_db_engine():
         _db_engine = create_async_engine(
             settings.async_database_url,
             echo=False,
-            pool_size=10,
-            max_overflow=20
+            pool_size=5,
+            max_overflow=5,
+            pool_recycle=3600,  # Recycle connections every hour
+            pool_pre_ping=True  # Verify connection before using
         )
     return _db_engine
 
