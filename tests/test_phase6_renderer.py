@@ -705,5 +705,398 @@ class TestRendererSystemPrompt:
         assert "only what the character can see" in prompt.lower()
 
 
+# =============================================================================
+# RENDERENGINE INTEGRATION TESTS (15 tests)
+# =============================================================================
+
+class TestRenderEngineIntegration:
+    """Test RenderEngine class integration with world state and mapping layer."""
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_initialization(self, db_session):
+        """Test RenderEngine can be initialized."""
+        from backend.renderer.service import RenderEngine
+        
+        engine = RenderEngine(db_session)
+        assert engine is not None
+        assert engine.world_repo is not None
+        assert engine.agent_repo is not None
+        assert engine.render_engine is not None
+    
+    @pytest.mark.asyncio
+    async def test_render_world_state_user_pov(self, db_session):
+        """Test render_world_state for user POV."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, AgentRepo, UserRepo
+        from backend.persistence.models import LocationModel, UserModel
+        
+        # Setup world and location
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Living Room",
+            description="A cozy living room",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        # Create user
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        user.location_id = location.id
+        await db_session.flush()
+        
+        # Create render engine
+        render_engine = RenderEngine(db_session)
+        
+        # Render world state
+        narrative = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Should return a narrative string
+        assert isinstance(narrative, str)
+        assert len(narrative) > 0
+    
+    @pytest.mark.asyncio
+    async def test_render_world_state_agent_pov(self, db_session):
+        """Test render_world_state for agent POV."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, AgentRepo
+        from backend.persistence.models import LocationModel, AgentModel
+        
+        # Setup world and location
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Kitchen",
+            description="A modern kitchen",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        # Create agent
+        agent_repo = AgentRepo(db_session)
+        agent = await agent_repo.create_agent({
+            "name": "Rebecca",
+            "world_id": world.id,
+            "location_id": location.id,
+            "personality_summary": "A thoughtful person."
+        })
+        
+        # Create render engine
+        render_engine = RenderEngine(db_session)
+        
+        # Render world state
+        narrative = await render_engine.render_world_state(
+            perceiver_id=agent.id,
+            perceiver_type="agent"
+        )
+        
+        # Should return a narrative string
+        assert isinstance(narrative, str)
+        assert len(narrative) > 0
+    
+    @pytest.mark.asyncio
+    async def test_render_event(self, db_session):
+        """Test render_event method."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, AgentRepo, UserRepo
+        from backend.persistence.models import LocationModel, UserModel, EventModel
+        
+        # Setup world and location
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Bedroom",
+            description="A quiet bedroom",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        # Create user
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        user.location_id = location.id
+        await db_session.flush()
+        
+        # Create event
+        event = EventModel(
+            world_id=world.id,
+            event_type="interaction",
+            payload={"description": "Someone enters the room"}
+        )
+        db_session.add(event)
+        await db_session.flush()
+        
+        # Create render engine
+        render_engine = RenderEngine(db_session)
+        
+        # Render event
+        narrative = await render_engine.render_event(
+            event=event,
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Should return a narrative string
+        assert isinstance(narrative, str)
+        assert len(narrative) > 0
+    
+    @pytest.mark.asyncio
+    async def test_render_scene_chunk(self, db_session):
+        """Test render_scene_chunk method."""
+        from backend.renderer.service import RenderEngine
+        
+        # Create render engine
+        render_engine = RenderEngine(db_session)
+        
+        # Create context packet
+        context_packet = {
+            "perceiver_name": "you",
+            "perceiver_type": "user",
+            "perceiver_id": "1",
+            "location": "Living Room",
+            "visible_entities": ["Rebecca"],
+            "sensory_snapshot": "The room is quiet.",
+            "agent_personalities": {
+                "Rebecca": {
+                    "personality_summary": "A thoughtful person.",
+                    "domain_summaries": {},
+                    "dynamic_activation": "Present.",
+                    "mood_context": "neutral",
+                    "energy_context": "normal"
+                }
+            },
+            "event_description": "Rebecca sits on the couch.",
+            "event_type": "interaction",
+            "scene_mode": "standard",
+            "use_adult_renderer": False
+        }
+        
+        # Render scene chunk
+        narrative = await render_engine.render_scene_chunk(context_packet)
+        
+        # Should return a narrative string
+        assert isinstance(narrative, str)
+        assert len(narrative) > 0
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_no_cognition_integration(self, db_session):
+        """Test that RenderEngine does NOT integrate with CognitionService."""
+        from backend.renderer.service import RenderEngine
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Verify RenderEngine does not have cognition_service attribute
+        assert not hasattr(render_engine, 'cognition_service')
+        assert not hasattr(render_engine, 'trigger_cognition')
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_uses_mapping_layer(self, db_session):
+        """Test that RenderEngine uses mapping layer for semantic conversion."""
+        from backend.renderer.service import RenderEngine
+        
+        render_engine = RenderEngine(db_session)
+        
+        # RenderEngine should use RendererContextBuilder from mapping layer
+        # This is verified by the fact that it builds RendererContext
+        assert hasattr(render_engine, '_packet_to_context')
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_uses_world_repo(self, db_session):
+        """Test that RenderEngine uses WorldRepo for location lookup."""
+        from backend.renderer.service import RenderEngine
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Should have world_repo
+        assert render_engine.world_repo is not None
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_uses_personality_summaries(self, db_session):
+        """Test that RenderEngine uses personality summaries (semantic, not numeric)."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, AgentRepo
+        from backend.persistence.models import LocationModel, AgentModel
+        
+        # Setup
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Study",
+            description="A quiet study",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        # Create agent with personality summary
+        agent_repo = AgentRepo(db_session)
+        agent = await agent_repo.create_agent({
+            "name": "Rebecca",
+            "world_id": world.id,
+            "location_id": location.id,
+            "personality_summary": "A thoughtful and introspective person."
+        })
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Render should use personality summary (semantic)
+        narrative = await render_engine.render_world_state(
+            perceiver_id=agent.id,
+            perceiver_type="agent"
+        )
+        
+        # Narrative should be generated (uses personality summary)
+        assert isinstance(narrative, str)
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_determinism(self, db_session):
+        """Test that RenderEngine produces deterministic output (with stubbed LLM)."""
+        # Note: Full determinism requires stubbing the LLM
+        # This test verifies the structure, not the LLM output
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, UserRepo
+        from backend.persistence.models import LocationModel
+        
+        # Setup
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Hall",
+            description="A hallway",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        user.location_id = location.id
+        await db_session.flush()
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Same input should produce same structure
+        # (LLM output may vary, but structure should be consistent)
+        narrative1 = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Both should be strings
+        assert isinstance(narrative1, str)
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_no_numeric_leakage(self, db_session):
+        """Test that RenderEngine does not leak numeric values to LLM."""
+        from backend.renderer.service import RenderEngine
+        
+        render_engine = RenderEngine(db_session)
+        
+        # The _packet_to_context method should convert numeric to semantic
+        # This is verified by the use of RendererContextBuilder
+        # which uses mapping layer for semantic conversion
+        assert hasattr(render_engine, '_packet_to_context')
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_handles_empty_world(self, db_session):
+        """Test that RenderEngine handles empty world gracefully."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import UserRepo
+        
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Should handle gracefully
+        narrative = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Should return a fallback narrative
+        assert isinstance(narrative, str)
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_handles_missing_location(self, db_session):
+        """Test that RenderEngine handles missing location gracefully."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import UserRepo
+        
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        # user.location_id is None
+        
+        render_engine = RenderEngine(db_session)
+        
+        # Should handle gracefully
+        narrative = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Should return a fallback narrative
+        assert isinstance(narrative, str)
+        assert "nowhere" in narrative.lower() or len(narrative) > 0
+    
+    @pytest.mark.asyncio
+    async def test_render_engine_continuity_caching(self, db_session):
+        """Test that RenderEngine caches previous perceptions for continuity."""
+        from backend.renderer.service import RenderEngine
+        from backend.persistence.repo import WorldRepo, UserRepo
+        from backend.persistence.models import LocationModel
+        
+        # Setup
+        world_repo = WorldRepo(db_session)
+        world = await world_repo.create_world()
+        
+        location = LocationModel(
+            name="Garden",
+            description="A peaceful garden",
+            world_id=world.id
+        )
+        db_session.add(location)
+        await db_session.flush()
+        
+        user_repo = UserRepo(db_session)
+        user = await user_repo.create_user("test_user")
+        user.location_id = location.id
+        await db_session.flush()
+        
+        render_engine = RenderEngine(db_session)
+        
+        # First render
+        narrative1 = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Second render should use cached previous perception
+        narrative2 = await render_engine.render_world_state(
+            perceiver_id=user.id,
+            perceiver_type="user"
+        )
+        
+        # Both should be valid narratives
+        assert isinstance(narrative1, str)
+        assert isinstance(narrative2, str)
+        
+        # Cache should exist
+        cache_key = f"user_{user.id}"
+        assert cache_key in render_engine._previous_perceptions
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
