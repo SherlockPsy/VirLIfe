@@ -54,8 +54,23 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    """Basic health check."""
-    return {"status": "ok", "environment": settings.environment}
+    """Health check endpoint - Railway uses this to determine if container is healthy."""
+    checks = {
+        "status": "ok",
+        "environment": settings.environment
+    }
+    
+    # Check database connectivity (Railway requires this)
+    try:
+        engine = await get_db_engine()
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)}"
+        raise HTTPException(status_code=503, detail=f"Database unavailable: {str(e)}")
+    
+    return checks
 
 @app.get("/health/full")
 async def health_check_full():
