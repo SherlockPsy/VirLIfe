@@ -24,8 +24,8 @@ class Settings(BaseSettings):
                     "DATABASE_URL environment variable is required and must not be empty. "
                     "Expected format: postgresql://user:password@host:port/database"
                 )
-            # In development/testing, provide SQLite fallback
-            return "sqlite+aiosqlite:///:memory:"
+            # In development/testing, provide SQLite fallback (file-based for persistence across sessions)
+            return "sqlite+aiosqlite:///./virlife.db"
         
         # Validate that we're not pointing to localhost in production
         if (os.environ.get('RAILWAY_ENVIRONMENT_NAME') or os.environ.get('ENVIRONMENT') == 'production'):
