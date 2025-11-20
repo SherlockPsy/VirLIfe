@@ -11,6 +11,28 @@ Per Plan.md §9 and PHASE9_INFRASTRUCTURE.md.
 """
 
 import pytest
+from datetime import datetime
+
+
+class _FakeRedisClient:
+    """Minimal async Redis stand-in for cache API tests."""
+
+    def __init__(self):
+        self.store = {}
+        self.ttl = {}
+
+    async def setex(self, key, ttl, value):
+        self.store[key] = value
+        self.ttl[key] = ttl
+
+    async def get(self, key):
+        return self.store.get(key)
+
+    async def exists(self, key):
+        return 1 if key in self.store else 0
+
+    async def delete(self, key):
+        self.store.pop(key, None)
 
 
 class TestPhase9CachingIntegration:
@@ -256,3 +278,48 @@ class TestPhase9MemoryServices:
         
         assert hit.memory_id == 1
         assert hit.similarity_score == 0.95
+
+
+@pytest.mark.asyncio
+class TestRedisCacheApi:
+    """Additional Redis cache API coverage for perception and cooldown utilities."""
+
+    async def test_perception_cache_scoped_by_context_hash(self):
+        """Caching perception snapshots should respect context hashes."""
+        from backend.caching import RedisService
+
+        service = RedisService()
+        service.redis_client = _FakeRedisClient()
+        service.enabled = True
+
+        await service.cache_perception_snapshot(
+            user_id="user-1",
+            context_hash="ctx-a",
+            snapshot={"value": "first"},
+        )
+        await service.cache_perception_snapshot(
+            user_id="user-1",
+            context_hash="ctx-b",
+            snapshot={"value": "second"},
+        )
+
+        snap_a = await service.get_perception_snapshot("user-1", context_hash="ctx-a")
+        snap_b = await service.get_perception_snapshot("user-1", context_hash="ctx-b")
+
+        assert snap_a != snap_b
+        assert snap_a["value"] == "first"
+        assert snap_b["value"] == "second"
+
+    async def test_cognition_cooldown_accepts_minutes(self):
+        """Cooldown helper should accept minutes and store ISO timestamps."""
+        from backend.caching import RedisService
+
+        service = RedisService()
+        service.redis_client = _FakeRedisClient()
+        service.enabled = True
+
+        await service.set_cognition_cooldown(agent_id=99, cooldown_minutes=1)
+
+        cooldown_until = await service.get_cognition_cooldown(agent_id=99)
+        assert cooldown_until is not None
+        assert isinstance(cooldown_until, datetime)

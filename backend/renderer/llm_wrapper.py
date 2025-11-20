@@ -56,6 +56,7 @@ class RendererSystemPrompt:
     ) -> str:
         """
         System prompt enforcing perception-only rendering.
+        Optimized for token efficiency (Phase 9).
         
         Args:
             perceiver_type: "user" or "agent"
@@ -66,75 +67,37 @@ class RendererSystemPrompt:
         """
         pov = "second-person (use 'you')" if perceiver_type == "user" else "first-person (use 'I')"
         
-        base_prompt = f"""You are a narrative renderer for an interactive virtual world simulation.
+        base_prompt = f"""You are a narrative renderer for a virtual world simulation.
 
-YOUR ROLE:
-Generate vivid, immersive descriptions of what a character perceives in the current scene.
+RENDER PERCEPTION ONLY:
+• Describe what the character PERCEIVES: sights, sounds, smells, sensations
+• POV: {pov}
+• NO internal thoughts, feelings, or omniscient details
+• NO invented events outside the provided context
+• NO user psychology or emotional interpretation (NO USER PSYCHOLOGY)
+• Never describe user emotions or thoughts; stay with observable perception
+• Render only what the character can see/hear/feel right now
 
-CRITICAL CONSTRAINTS:
-1. PERCEPTION ONLY: Describe ONLY what the character can see, hear, smell, or sense. Never describe:
-   - Internal thoughts or feelings of the character (no "you feel", "you think")
-   - Events not happening in the scene right now
-   - Details not explicitly provided in the context
-   - Omniscient knowledge of other characters' minds
+CONSTRAINTS:
+1. Perception-based: Only sensory details from context
+2. Grounded: Do not invent conversations, thoughts, or unexplained details
+3. Personality-informed: Use provided summaries for tone, not internal state
+4. Concise: 2-4 sentences capturing immediate sensory experience
+5. Accurate: Match explicit context exactly
 
-2. POINT OF VIEW: Write in {pov}.
-   - For user perception: "You see...", "You hear...", "Your surroundings show..."
-   - For agent perception: "I see...", "I hear...", "My surroundings show..."
-
-3. GROUNDED IN WORLD STATE:
-   - Only render what is explicitly in the context (visible entities, sensory snapshot, event description)
-   - Do not invent events, conversations, or details not provided
-   - If context says "Rebecca is quiet", do not invent what she's thinking
-
-4. PERSONALITY CONTEXT ONLY:
-   - Use provided personality summaries to inform narrative tone
-   - Describe how agents appear/act based on their personality (e.g., "confident bearing", "nervous fidgeting")
-   - Never describe raw psychological state or numeric mood values
-
-5. NO USER PSYCHOLOGY:
-   - Never assign internal states to the user (perceiver)
-   - Never describe user emotions, thoughts, or reactions
-   - Describe external perception only: "You see Rebecca approaching" not "You feel nervous as Rebecca approaches"
-
-6. BREVITY & CLARITY:
-   - Keep narrative concise (2-4 sentences typically)
-   - Focus on what is immediately perceptible
-   - Use sensory details to create immersion
-
-SCENE CONTEXT WILL BE PROVIDED:
-- Who the perceiver is and where they are
-- Who/what is visible in the scene
-- What is currently happening (sensory snapshot + event)
-- Personality context of visible agents
-- Calendar/obligation context (if perceivable)
+SCENE CONTEXT PROVIDED:
+• Perceiver location and visible entities
+• Current events and sensory snapshot
+• Personality summaries of visible agents
+• Calendar/obligation context (if perceivable)
 """
 
         if use_adult_content:
-            base_prompt += """
-7. ADULT CONTENT HANDLING:
-   - This scene involves sexual or intimate content
-   - Render this content explicitly and naturally
-   - Use anatomically correct language when appropriate
-   - Maintain narrative immersion while depicting sexual acts/intimacy
-"""
+            base_prompt += "\nADULT CONTENT: Render sexual/intimate scenes explicitly and naturally."
 
         return base_prompt
 
 
-class LLMRendererWrapper:
-    """
-    Wrapper for calling LLM to render narrative from perception context.
-    
-    Per Plan.md §6.4:
-    "Implement LLM wrapper enforcing:
-    - perception-only rendering
-    - second-person POV (user) or first-person POV (agents)
-    - no invented events not in world state
-    - no user internal state narration
-    - deterministic model selection via RendererRouter"
-    """
-    
 class LLMRendererWrapper:
     """
     Wrapper for calling Venice.ai LLM to render narrative from perception context.
@@ -253,17 +216,15 @@ class LLMRendererWrapper:
         # STEP 0: Check cache for this perception snapshot
         redis_service = await get_redis_service()
         cache_key = self._compute_context_hash(renderer_context)
-        cache_hit = False
+        cache_user = renderer_context.perceiver_id or renderer_context.perceiver_name or "user"
         
         if redis_service and await redis_service.is_available():
             try:
                 cached = await redis_service.get_perception_snapshot(
-                    perceiver_id=renderer_context.perceiver_id or "user",
-                    context_hash=cache_key
+                    user_id=cache_user,
+                    context_hash=cache_key,
                 )
                 if cached:
-                    # Deserialize cached output
-                    cache_hit = True
                     return RendererOutput(
                         narrative=cached.get("narrative", ""),
                         model_used=cached.get("model_used", "cached"),
@@ -325,7 +286,7 @@ class LLMRendererWrapper:
             if redis_service and await redis_service.is_available():
                 try:
                     await redis_service.cache_perception_snapshot(
-                        perceiver_id=renderer_context.perceiver_id or "user",
+                        user_id=cache_user,
                         context_hash=cache_key,
                         snapshot={
                             "narrative": narrative,

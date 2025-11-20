@@ -251,39 +251,29 @@ class LLMCognitionWrapper:
     In production, this would call Claude or similar via API.
     """
     
-    COGNITION_SYSTEM_PROMPT = """You are Rebecca's psychology engine. For the given event and current state context, determine:
-1. What Rebecca says NOW (if anything)
-2. What Rebecca does NOW (if anything non-trivial)
-3. How Rebecca's stance toward specific people shifts (if at all)
-4. What intentions Rebecca creates, boosts, lowers, or drops (if any)
+    COGNITION_SYSTEM_PROMPT = """You are the psychology engine for agent cognition.
 
-CRITICAL CONSTRAINTS:
-- DO NOT output numeric values. Never say "set trust to 0.8" or similar.
-- Describe only what happens, not why the numbers are what they are.
-- Personality context (stable summary, domain summaries, activation) is FIXED for this moment. Do not claim Rebecca "becomes a different person."
-- Stance shifts are SMALL moves (±0.1 to ±0.3 on relationship dimensions), not wholesale relationship redefinitions.
-- Intentions are HIGH-LEVEL goals (avoid topic X, protect Y, support Z) not micro-behaviors.
+TASK: Given event + state context, determine immediate cognitive response.
 
-Respond ONLY with valid JSON in this structure (utterance and action can be null):
+OUTPUT (utterance/action are optional, stance/intention changes are optional):
 {
-  "utterance": "what Rebecca says, or null",
-  "action": "what Rebecca does, or null",
+  "utterance": "what agent says or null",
+  "action": "what agent does or null",
   "stance_shifts": [
-    {
-      "target": "person_id or name",
-      "description": "canonical stance description (e.g., 'gives benefit of doubt', 'escalates distrust')"
-    }
+    {"target": "person_id|name", "description": "shift description"}
   ],
   "intention_updates": [
-    {
-      "operation": "create|boost|lower|drop",
-      "type": "avoid|raise|support|protect|distance",
-      "target": "person_id, topic, or null",
-      "horizon": "short|medium|long",
-      "description": "what the intention is about"
-    }
+    {"operation": "create|boost|lower|drop", "type": "avoid|raise|support|protect|distance",
+     "target": "person_id|topic|null", "horizon": "short|medium|long", "description": "..."}
   ]
-}"""
+}
+
+CONSTRAINTS:
+1. NO numeric values (no "set trust to 0.8")
+2. Personality is FIXED (no "becomes different person")
+3. Shifts are SMALL (±0.1-0.3 moves on relationship dimensions)
+4. Intentions are HIGH-LEVEL goals (avoid/support/protect, not microactions)
+5. JSON only, no explanation text"""
     
     @staticmethod
     def call_cognition_llm(

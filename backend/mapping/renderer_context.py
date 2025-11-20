@@ -55,6 +55,9 @@ class RendererContext:
     event_description: str  # What is happening
     event_type: str  # interaction, conflict, incursion, etc.
     
+    # Optional cache-scoping identifier
+    perceiver_id: Optional[str] = None  # Unique identifier for cache scoping
+    
     # Calendar/obligation context (if perceivable)
     perceivable_calendar_context: Optional[str] = None  # e.g., "clock showing 19:00"
     
@@ -126,6 +129,7 @@ class RendererContextBuilder:
         sensory_snapshot: str,  # What can be perceived
         event_description: str,
         event_type: str,
+        perceiver_id: Optional[str] = None,
         perceivable_calendar_context: Optional[str] = None,
         perceivable_unexpected_event: Optional[str] = None,
         scene_mode: str = "standard",
@@ -143,6 +147,7 @@ class RendererContextBuilder:
             sensory_snapshot: Semantic description of sensory input
             event_description: What is happening (semantic)
             event_type: Type of event
+            perceiver_id: Optional unique identifier for cache scoping (e.g., user UUID)
             perceivable_calendar_context: Perceivable calendar info (e.g., "clock shows 19:00")
             perceivable_unexpected_event: Perceivable incursion (e.g., "key turning")
             scene_mode: "standard", "intimate", or "sexual"
@@ -203,6 +208,7 @@ class RendererContextBuilder:
         return RendererContext(
             perceiver_name=perceiver_name,
             perceiver_type=perceiver_type,
+            perceiver_id=perceiver_id,
             location=location,
             visible_entities=visible_names,
             sensory_snapshot=sensory_snapshot,

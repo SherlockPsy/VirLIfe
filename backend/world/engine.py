@@ -180,10 +180,10 @@ class WorldEngine:
         # Adjacency Check (Phase 2.2)
         if old_location_id is not None and old_location_id != target_location_id:
             if agent.location:
-                # Strict adjacency check
-                # If adjacency list is empty, agent cannot move (is trapped).
-                if target_location_id not in agent.location.adjacency:
-                    raise ValueError(f"Movement failed: Location {target_location_id} is not adjacent to {old_location_id}.")
+                # If adjacency not defined or empty, allow movement (non-blocking default).
+                if agent.location.adjacency:
+                    if target_location_id not in agent.location.adjacency:
+                        raise ValueError(f"Movement failed: Location {target_location_id} is not adjacent to {old_location_id}.")
 
         agent.location_id = target_location_id
         await self.agent_repo.save_agent(agent)

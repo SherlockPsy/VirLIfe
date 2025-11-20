@@ -169,8 +169,9 @@ class RedisService:
     
     async def cache_perception_snapshot(
         self,
-        user_id: int,
+        user_id: Any,
         snapshot: Dict[str, Any],
+        context_hash: Optional[str] = None,
         ttl: int = TTL_PERCEPTION
     ) -> bool:
         """
@@ -179,13 +180,13 @@ class RedisService:
         Very short TTL (5 min default) - meant for preventing redundant renders
         within same session.
         
-        Key: perception:render:{user_id}
+        Key: perception:render:{user_id}:{context_hash or "default"}
         """
         if not self.redis_client:
             return False
         
         try:
-            key = f"{self.PREFIX_PERCEPTION}{user_id}"
+            key = self._build_perception_key(user_id, context_hash)
             value = json.dumps(snapshot)
             await self.redis_client.setex(key, ttl, value)
             return True
@@ -195,14 +196,15 @@ class RedisService:
     
     async def get_perception_snapshot(
         self,
-        user_id: int
+        user_id: Any,
+        context_hash: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Retrieve most recent perception snapshot for user."""
         if not self.redis_client:
             return None
         
         try:
-            key = f"{self.PREFIX_PERCEPTION}{user_id}"
+            key = self._build_perception_key(user_id, context_hash)
             value = await self.redis_client.get(key)
             if value:
                 return json.loads(value)
@@ -218,7 +220,8 @@ class RedisService:
     async def set_cognition_cooldown(
         self,
         agent_id: int,
-        cooldown_until: datetime,
+        cooldown_until: Optional[datetime] = None,
+        cooldown_minutes: Optional[int] = None,
         ttl: int = TTL_COOLDOWN
     ) -> bool:
         """
@@ -233,8 +236,18 @@ class RedisService:
         
         try:
             key = f"{self.PREFIX_COOLDOWN}{agent_id}"
-            value = cooldown_until.isoformat()
-            await self.redis_client.setex(key, ttl, value)
+            if cooldown_minutes is not None:
+                ttl_seconds = max(int(cooldown_minutes * 60), 1)
+                expiration = datetime.now() + timedelta(seconds=ttl_seconds)
+            elif cooldown_until is not None:
+                expiration = cooldown_until
+                ttl_seconds = max(int((expiration - datetime.now()).total_seconds()), 1)
+            else:
+                ttl_seconds = max(ttl, 1)
+                expiration = datetime.now() + timedelta(seconds=ttl_seconds)
+            
+            value = expiration.isoformat()
+            await self.redis_client.setex(key, ttl_seconds, value)
             return True
         except Exception as e:
             logger.debug(f"Failed to cache cooldown: {e}")
@@ -407,8 +420,13 @@ class RedisService:
             "available": await self.is_available(),
             "connected": self.redis_client is not None,
             "url_configured": self.enabled,
-            "error": None if self.redis_client else "Redis not configured"
+                "error": None if self.redis_client else "Redis not configured"
         }
+
+    def _build_perception_key(self, user_id: Any, context_hash: Optional[str]) -> str:
+        """Create deterministic cache key for perception snapshots."""
+        suffix = context_hash or "default"
+        return f"{self.PREFIX_PERCEPTION}{user_id}:{suffix}"
 
 
 # Global instance
