@@ -44,6 +44,9 @@ from backend.renderer.incursion_rendering import (
     IncursionRenderer,
 )
 
+from backend.renderer.service import RenderEngine
+from backend.renderer.context_builders import RendererPerceptionBuilder
+
 __all__ = [
     # Perception
     "EntityCategory",
@@ -68,4 +71,8 @@ __all__ = [
     "IncursionRendering",
     "IncursionRenderingStrategy",
     "IncursionRenderer",
+    # Service
+    "RenderEngine",
+    # Context Builders
+    "RendererPerceptionBuilder",
 ]
