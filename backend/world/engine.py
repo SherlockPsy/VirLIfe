@@ -139,6 +139,23 @@ class WorldEngine:
                     "payload": {"calendar_id": item.id}
                 })
 
+        # Check for MISSED items (Appendix J)
+        missed = await self.agent_repo.get_missed_calendar_items(world.current_time)
+        for item in missed:
+            item.status = "missed"
+            self.session.add(item)
+            
+            await self.world_repo.add_event({
+                "world_id": world.id,
+                "type": "calendar_missed",
+                "description": f"{item.agent.name} missed event '{item.title}'.",
+                "tick": world.current_tick,
+                "timestamp": world.current_time,
+                "source_entity_id": "system",
+                "target_entity_id": f"agent:{item.agent_id}",
+                "payload": {"calendar_id": item.id}
+            })
+
     async def _generate_incursions(self, world: WorldModel):
         """
         Generates unexpected events based on world state.
@@ -159,8 +176,21 @@ class WorldEngine:
             raise ValueError("Agent not found")
             
         old_location_id = agent.location_id
+        
+        # Adjacency Check (Phase 2.2)
+        if old_location_id is not None and old_location_id != target_location_id:
+            if agent.location:
+                # Strict adjacency check
+                # If adjacency list is empty, agent cannot move (is trapped).
+                if target_location_id not in agent.location.adjacency:
+                    raise ValueError(f"Movement failed: Location {target_location_id} is not adjacent to {old_location_id}.")
+
         agent.location_id = target_location_id
         await self.agent_repo.save_agent(agent)
+        
+        # Refresh agent to ensure relationships (like location) are updated in the session
+        # This prevents stale location objects in subsequent ticks
+        await self.session.refresh(agent)
         
         # Generate movement event
         world = await self.get_or_create_world()

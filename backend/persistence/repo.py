@@ -91,6 +91,17 @@ class AgentRepo:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_missed_calendar_items(self, current_time: datetime.datetime) -> List[CalendarModel]:
+        """
+        Finds items that have ended before current_time but are still pending/active.
+        """
+        stmt = select(CalendarModel).where(
+            CalendarModel.end_time < current_time,
+            CalendarModel.status.in_(["pending", "active"])
+        ).options(selectinload(CalendarModel.agent))
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
 class WorldRepo:
     def __init__(self, session: AsyncSession):
         self.session = session

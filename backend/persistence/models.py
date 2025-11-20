@@ -25,6 +25,7 @@ class LocationModel(Base):
     description = Column(Text, nullable=False)
     world_id = Column(Integer, ForeignKey("worlds.id"), nullable=False)
     attributes = Column(JSON, default={}) # For tags, properties
+    adjacency = Column(JSON, default=[], nullable=False) # List of connected location IDs
 
     world = relationship("WorldModel", back_populates="locations")
     agents = relationship("AgentModel", back_populates="location")

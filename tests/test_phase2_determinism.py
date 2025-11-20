@@ -105,6 +105,16 @@ async def test_off_screen_continuity(db_session):
     db_session.add_all([loc_bed, loc_kitchen])
     await db_session.flush()
     
+    # Set Adjacency (Required for movement)
+    loc_bed.adjacency = [loc_kitchen.id]
+    loc_kitchen.adjacency = [loc_bed.id]
+    db_session.add_all([loc_bed, loc_kitchen])
+    await db_session.flush()
+    
+    # Refresh objects to ensure they are clean and consistent
+    await db_session.refresh(loc_bed)
+    await db_session.refresh(loc_kitchen)
+    
     # Create Agent in Bedroom
     agent_repo = AgentRepo(db_session)
     agent = await agent_repo.create_agent({

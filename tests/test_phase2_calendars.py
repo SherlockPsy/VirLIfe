@@ -77,3 +77,39 @@ async def test_calendar_reminders_timing(db_session):
     # Since we limit=10, we see the old one.
     # But we want to ensure no NEW one was added.
     assert len(reminders_new) == 1 # Count didn't increase
+
+@pytest.mark.asyncio
+async def test_calendar_missed_obligation(db_session):
+    engine = WorldEngine(db_session)
+    world = await engine.get_or_create_world()
+    agent_repo = AgentRepo(db_session)
+    agent = await agent_repo.create_agent({"name": "MissTest", "world_id": world.id})
+    
+    # Schedule event that ends in the past relative to next tick
+    # Start: T-60m, End: T-10m
+    start_time = world.current_time - datetime.timedelta(minutes=60)
+    end_time = world.current_time - datetime.timedelta(minutes=10)
+    
+    item = await agent_repo.add_calendar_item({
+        "agent_id": agent.id,
+        "title": "Missed Meeting",
+        "start_time": start_time,
+        "end_time": end_time,
+        "type": "obligation",
+        "status": "pending" # Still pending, so it should be missed
+    })
+    
+    # Tick
+    await engine.tick(60)
+    
+    # Check for missed event
+    world_repo = WorldRepo(db_session)
+    events = await world_repo.get_recent_events(world.id)
+    missed_events = [e for e in events if e.type == "calendar_missed"]
+    
+    assert len(missed_events) == 1
+    assert "Missed Meeting" in missed_events[0].description
+    
+    # Check item status
+    await db_session.refresh(item)
+    assert item.status == "missed"
