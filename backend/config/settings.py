@@ -1,13 +1,38 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+import os
 
 class Settings(BaseSettings):
     app_name: str = "VirLife Backend"
     environment: str = "production"
-    database_url: str = "postgresql+asyncpg://user:password@localhost/virlife"
+    database_url: str = ""
     venice_api_key: str = ""
     venice_base_url: str = "https://api.venice.ai/api/v1"
     
     model_config = SettingsConfigDict(env_file=".env")
+
+    @field_validator('database_url', mode='before')
+    @classmethod
+    def validate_database_url(cls, v):
+        # If no DATABASE_URL is set and we're in production, require it
+        if not v:
+            if os.environ.get('RAILWAY_ENVIRONMENT_NAME') or os.environ.get('ENVIRONMENT') == 'production':
+                raise ValueError(
+                    "DATABASE_URL environment variable is required and must not be empty. "
+                    "Expected format: postgresql://user:password@host:port/database"
+                )
+            # In development/testing, provide SQLite fallback
+            return "sqlite+aiosqlite:///:memory:"
+        
+        # Validate that we're not pointing to localhost in production
+        if (os.environ.get('RAILWAY_ENVIRONMENT_NAME') or os.environ.get('ENVIRONMENT') == 'production'):
+            if "localhost" in v or "127.0.0.1" in v:
+                raise ValueError(
+                    "DATABASE_URL points to localhost. On Railway, use the remote database URL. "
+                    "Check your environment variables."
+                )
+        
+        return v
 
     @property
     def async_database_url(self) -> str:
@@ -18,6 +43,10 @@ class Settings(BaseSettings):
         - postgresql:// → postgresql+asyncpg://
         """
         url = self.database_url
+        
+        # SQLite doesn't need conversion
+        if url.startswith("sqlite"):
+            return url
         
         # Handle postgres:// (old Heroku format)
         if url and url.startswith("postgres://"):
