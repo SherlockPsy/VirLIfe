@@ -109,7 +109,7 @@ class GatewayAPI:
         try:
             world_engine = WorldEngine(db)
             autonomy_engine = AutonomyEngine()  # No arguments
-            cognition_service = CognitionService(db)
+            # CognitionService is static, no instantiation needed
 
             world = await world_engine.get_or_create_world()
             events_generated = 0
