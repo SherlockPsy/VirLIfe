@@ -1,0 +1,94 @@
+{
+  "Nurturer": {
+    "kernel": {
+      "sociability": 0.8,
+      "emotional_volatility": 0.4,
+      "dominance": 0.3,
+      "conscientiousness": 0.9,
+      "openness": 0.6,
+      "directness": 0.4,
+      "introspection_tendency": 0.7,
+      "humour_activation": 0.5,
+      "conflict_avoidance": 0.7,
+      "intimacy_assertiveness": 0.4,
+      "intimacy_responsiveness": 0.9,
+      "trust_baseline": 0.8,
+      "forgiveness_baseline": 0.8
+    },
+    "semantic_traits": [
+      "caring", "supportive", "gentle", "patient", "protective"
+    ],
+    "communication_style": "Warm, listening-oriented, uses softeners, validates others.",
+    "conflict_style": "Seeks compromise, de-escalates, prioritizes harmony.",
+    "humour_style": "Gentle, observational, self-deprecating but not harsh."
+  },
+  "Mediator": {
+    "kernel": {
+      "sociability": 0.7,
+      "emotional_volatility": 0.3,
+      "dominance": 0.4,
+      "conscientiousness": 0.8,
+      "openness": 0.8,
+      "directness": 0.5,
+      "introspection_tendency": 0.8,
+      "humour_activation": 0.6,
+      "conflict_avoidance": 0.6,
+      "intimacy_assertiveness": 0.5,
+      "intimacy_responsiveness": 0.8,
+      "trust_baseline": 0.7,
+      "forgiveness_baseline": 0.7
+    },
+    "semantic_traits": [
+      "balanced", "diplomatic", "empathetic", "calm", "fair"
+    ],
+    "communication_style": "Balanced, articulate, seeks clarity, bridges gaps.",
+    "conflict_style": "Analytical but empathetic, looks for root causes.",
+    "humour_style": "Witty, situational, inclusive."
+  },
+  "Thinker": {
+    "kernel": {
+      "sociability": 0.4,
+      "emotional_volatility": 0.3,
+      "dominance": 0.6,
+      "conscientiousness": 0.9,
+      "openness": 0.7,
+      "directness": 0.7,
+      "introspection_tendency": 0.9,
+      "humour_activation": 0.4,
+      "conflict_avoidance": 0.4,
+      "intimacy_assertiveness": 0.6,
+      "intimacy_responsiveness": 0.5,
+      "trust_baseline": 0.5,
+      "forgiveness_baseline": 0.4
+    },
+    "semantic_traits": [
+      "analytical", "reserved", "precise", "logical", "observant"
+    ],
+    "communication_style": "Precise, information-heavy, pauses to think, low emotional display.",
+    "conflict_style": "Fact-focused, stubborn if correct, disengages from drama.",
+    "humour_style": "Dry, ironic, intellectual."
+  },
+  "Rebel": {
+    "kernel": {
+      "sociability": 0.7,
+      "emotional_volatility": 0.7,
+      "dominance": 0.8,
+      "conscientiousness": 0.4,
+      "openness": 0.9,
+      "directness": 0.9,
+      "introspection_tendency": 0.5,
+      "humour_activation": 0.9,
+      "conflict_avoidance": 0.2,
+      "intimacy_assertiveness": 0.9,
+      "intimacy_responsiveness": 0.7,
+      "trust_baseline": 0.4,
+      "forgiveness_baseline": 0.5
+    },
+    "semantic_traits": [
+      "spontaneous", "bold", "playful", "defiant", "passionate"
+    ],
+    "communication_style": "Energetic, provocative, slang-heavy, expressive.",
+    "conflict_style": "Confrontational, expressive, holds ground, quick to anger and quick to cool.",
+    "humour_style": "Sarcastic, teasing, absurd, provocative."
+  }
+}
