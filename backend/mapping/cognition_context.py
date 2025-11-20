@@ -316,23 +316,105 @@ class CognitionContextBuilder:
         """
         Filter memories to most relevant, reducing token count.
         
-        Phase 9 optimization: Reduce memory context by 25-30%.
+        Phase 9 optimization: Prioritize by salience, recency, and event-type relevance.
+        Reduces memory context by 25-30% while maintaining quality.
+        
+        Implements: Plan.md §9.4 (prompt optimization)
         
         Args:
-            episodic_memories: List of episodic memory dicts
+            episodic_memories: List of episodic memory dicts with 'salience', 'timestamp', 'semantic_tags'
             biographical_memories: List of biographical memory dicts
-            event_type: Type of event (for relevance filtering)
+            event_type: Type of event (for relevance filtering via semantic_tags)
             max_episodic: Maximum episodic memories to include
             max_biographical: Maximum biographical memories to include
         
         Returns:
             (filtered_episodic, filtered_biographical) tuples
         """
-        # Filter episodic: take top-N by relevance score
-        filtered_episodic = episodic_memories[:max_episodic] if episodic_memories else []
+        from datetime import datetime, timezone
         
-        # Filter biographical: take top-N, prioritize recent
-        filtered_biographical = biographical_memories[:max_biographical] if biographical_memories else []
+        # Filter episodic: prioritize by salience, recency, and event-type relevance
+        if episodic_memories:
+            # Score each memory
+            scored_episodic = []
+            for mem in episodic_memories:
+                score = 0.0
+                
+                # Salience weight (0-1, higher is better)
+                salience = mem.get("salience", 0.0)
+                score += salience * 0.5  # 50% weight on salience
+                
+                # Recency weight (more recent = higher score)
+                timestamp = mem.get("timestamp")
+                if timestamp:
+                    if isinstance(timestamp, str):
+                        try:
+                            timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        except:
+                            timestamp = None
+                    
+                    if timestamp:
+                        # Handle timezone-aware and naive timestamps
+                        if timestamp.tzinfo:
+                            now = datetime.now(timezone.utc)
+                        else:
+                            now = datetime.now()
+                        
+                        age_days = (now - timestamp).total_seconds() / 86400
+                        # Recent memories (last 7 days) get full weight, older decay
+                        recency_score = max(0.0, 1.0 - (age_days / 30.0))  # Decay over 30 days
+                        score += recency_score * 0.3  # 30% weight on recency
+                
+                # Event-type relevance (check semantic_tags for overlap)
+                semantic_tags = mem.get("semantic_tags", [])
+                if isinstance(semantic_tags, list) and event_type:
+                    # Simple keyword matching (event_type might be "speech", "movement", etc.)
+                    event_lower = event_type.lower()
+                    if any(event_lower in str(tag).lower() for tag in semantic_tags):
+                        score += 0.2  # 20% bonus for relevance
+                
+                scored_episodic.append((score, mem))
+            
+            # Sort by score (highest first) and take top-N
+            scored_episodic.sort(key=lambda x: x[0], reverse=True)
+            filtered_episodic = [mem for _, mem in scored_episodic[:max_episodic]]
+        else:
+            filtered_episodic = []
+        
+        # Filter biographical: prioritize by recency (biographical facts are stable, recency matters less)
+        if biographical_memories:
+            # For biographical, we mainly care about recency of when it was learned/updated
+            scored_biographical = []
+            for mem in biographical_memories:
+                score = 0.5  # Base score for biographical (they're all important)
+                
+                # Slight recency boost
+                timestamp = mem.get("timestamp") or mem.get("created_at")
+                if timestamp:
+                    if isinstance(timestamp, str):
+                        try:
+                            timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        except:
+                            timestamp = None
+                    
+                    if timestamp:
+                        # Handle timezone-aware and naive timestamps
+                        if timestamp.tzinfo:
+                            now = datetime.now(timezone.utc)
+                        else:
+                            now = datetime.now()
+                        
+                        age_days = (now - timestamp).total_seconds() / 86400
+                        recency_score = max(0.0, 1.0 - (age_days / 90.0))  # Decay over 90 days
+                        score += recency_score * 0.3
+                
+                scored_biographical.append((score, mem))
+            
+            # Sort and take top-N
+            scored_biographical.sort(key=lambda x: x[0], reverse=True)
+            filtered_biographical = [mem for _, mem in scored_biographical[:max_biographical]]
+        else:
+            filtered_biographical = []
         
         return filtered_episodic, filtered_biographical
 
