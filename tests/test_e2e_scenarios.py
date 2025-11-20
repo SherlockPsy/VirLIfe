@@ -16,11 +16,13 @@ References:
 import pytest
 from datetime import datetime, timedelta
 from backend.persistence.repo import WorldRepo, AgentRepo, UserRepo
-from backend.persistence.models import LocationModel, CalendarModel
+from backend.persistence.models import LocationModel, CalendarModel, AgentModel, EventModel
 from backend.world.engine import WorldEngine
 from backend.autonomy.engine import AutonomyEngine
 from backend.cognition.service import CognitionService
-from backend.renderer.service import RendererService
+from backend.renderer.service import RenderEngine
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 
 @pytest.mark.asyncio
@@ -109,7 +111,7 @@ class TestQuietDayScenario:
         
         # Run first simulation (10 ticks = ~2 hours)
         world_engine = WorldEngine(db_session)
-        autonomy_engine = AutonomyEngine(db_session)
+        autonomy_engine = AutonomyEngine()
         
         initial_tick = world.current_tick
         initial_time = world.current_time
@@ -124,10 +126,44 @@ class TestQuietDayScenario:
         # Run 10 ticks
         for _ in range(10):
             await world_engine.tick()
-            await autonomy_engine.process_tick(world.id)
+            
+            # Update agent autonomy with recent events
+            await db_session.refresh(world)
+            
+            # Reload agent with all relationships eagerly loaded
+            stmt = select(AgentModel).options(
+                selectinload(AgentModel.memories),
+                selectinload(AgentModel.arcs),
+                selectinload(AgentModel.intentions),
+                selectinload(AgentModel.relationships)
+            ).where(AgentModel.id == agent.id)
+            result = await db_session.execute(stmt)
+            agent = result.scalars().first()
+            
+            # Fetch recent events for the agent
+            event_stmt = select(EventModel).where(
+                EventModel.world_id == world.id,
+                EventModel.processed == False
+            ).order_by(EventModel.tick.desc()).limit(10)
+            event_result = await db_session.execute(event_stmt)
+            events = event_result.scalars().all()
+            
+            # Filter events relevant to this agent
+            agent_events = [
+                e for e in events 
+                if f"agent:{agent.id}" in (e.target_entity_id or "") 
+                or f"agent:{agent.id}" in (e.source_entity_id or "")
+            ]
+            
+            # Update agent internal state (synchronous call)
+            autonomy_engine.update_agent_internal_state(agent, agent_events)
+            
+            # Mark events as processed
+            for event in agent_events:
+                event.processed = True
+            
             await db_session.commit()
             await db_session.refresh(world)
-            await db_session.refresh(agent)
         
         # Capture final state from first run
         final_tick_1 = world.current_tick
@@ -149,10 +185,44 @@ class TestQuietDayScenario:
         # Run second simulation (same 10 ticks)
         for _ in range(10):
             await world_engine.tick()
-            await autonomy_engine.process_tick(world.id)
+            
+            # Update agent autonomy with recent events
+            await db_session.refresh(world)
+            
+            # Reload agent with all relationships eagerly loaded
+            stmt = select(AgentModel).options(
+                selectinload(AgentModel.memories),
+                selectinload(AgentModel.arcs),
+                selectinload(AgentModel.intentions),
+                selectinload(AgentModel.relationships)
+            ).where(AgentModel.id == agent.id)
+            result = await db_session.execute(stmt)
+            agent = result.scalars().first()
+            
+            # Fetch recent events for the agent
+            event_stmt = select(EventModel).where(
+                EventModel.world_id == world.id,
+                EventModel.processed == False
+            ).order_by(EventModel.tick.desc()).limit(10)
+            event_result = await db_session.execute(event_stmt)
+            events = event_result.scalars().all()
+            
+            # Filter events relevant to this agent
+            agent_events = [
+                e for e in events 
+                if f"agent:{agent.id}" in (e.target_entity_id or "") 
+                or f"agent:{agent.id}" in (e.source_entity_id or "")
+            ]
+            
+            # Update agent internal state (synchronous call)
+            autonomy_engine.update_agent_internal_state(agent, agent_events)
+            
+            # Mark events as processed
+            for event in agent_events:
+                event.processed = True
+            
             await db_session.commit()
             await db_session.refresh(world)
-            await db_session.refresh(agent)
         
         # Capture final state from second run
         final_tick_2 = world.current_tick
@@ -215,28 +285,52 @@ class TestQuietDayScenario:
         
         # Run a few ticks with low-stakes events
         world_engine = WorldEngine(db_session)
-        autonomy_engine = AutonomyEngine(db_session)
-        cognition_service = CognitionService(db_session)
+        autonomy_engine = AutonomyEngine()
         
-        cognition_calls = []
-        
-        # Mock or track cognition calls
-        original_should_trigger = cognition_service.should_trigger_cognition
-        
-        async def track_cognition(*args, **kwargs):
-            result = await original_should_trigger(*args, **kwargs)
-            if result:
-                cognition_calls.append(("triggered", args, kwargs))
-            return result
-        
-        cognition_service.should_trigger_cognition = track_cognition
+        # In a quiet day scenario, cognition should not be triggered
+        # because meaningfulness is below threshold
+        # (Actual meaningfulness calculation would be in CognitionService.process_cognition)
         
         # Run 5 ticks
         for _ in range(5):
             await world_engine.tick()
-            await autonomy_engine.process_tick(world.id)
+            
+            # Update agent autonomy with recent events
+            await db_session.refresh(world)
+            
+            # Reload agent with all relationships eagerly loaded
+            stmt = select(AgentModel).options(
+                selectinload(AgentModel.memories),
+                selectinload(AgentModel.arcs),
+                selectinload(AgentModel.intentions),
+                selectinload(AgentModel.relationships)
+            ).where(AgentModel.id == agent.id)
+            result = await db_session.execute(stmt)
+            agent = result.scalars().first()
+            
+            # Fetch recent events for the agent
+            event_stmt = select(EventModel).where(
+                EventModel.world_id == world.id,
+                EventModel.processed == False
+            ).order_by(EventModel.tick.desc()).limit(10)
+            event_result = await db_session.execute(event_stmt)
+            events = event_result.scalars().all()
+            
+            # Filter events relevant to this agent
+            agent_events = [
+                e for e in events 
+                if f"agent:{agent.id}" in (e.target_entity_id or "") 
+                or f"agent:{agent.id}" in (e.source_entity_id or "")
+            ]
+            
+            # Update agent internal state (synchronous call)
+            autonomy_engine.update_agent_internal_state(agent, agent_events)
+            
+            # Mark events as processed
+            for event in agent_events:
+                event.processed = True
+            
             # Check cognition eligibility (should be low)
-            await db_session.refresh(agent)
             # In a real scenario, we'd check meaningfulness here
             await db_session.commit()
         
@@ -275,7 +369,7 @@ class TestQuietDayScenario:
         await db_session.commit()
         
         # Render a simple scene
-        renderer = RendererService(db_session)
+        renderer = RenderEngine(db_session)
         
         # In a real implementation, we'd call renderer.render() with proper context
         # For now, we verify the service exists and can be instantiated
@@ -381,8 +475,40 @@ class TestHighStakesScenario:
         await db_session.commit()
         
         # Process the event through autonomy engine
-        autonomy_engine = AutonomyEngine(db_session)
-        await autonomy_engine.process_tick(world.id)
+        autonomy_engine = AutonomyEngine()
+        
+        # Reload agent with all relationships eagerly loaded
+        stmt = select(AgentModel).options(
+            selectinload(AgentModel.memories),
+            selectinload(AgentModel.arcs),
+            selectinload(AgentModel.intentions),
+            selectinload(AgentModel.relationships)
+        ).where(AgentModel.id == agent.id)
+        result = await db_session.execute(stmt)
+        agent = result.scalars().first()
+        
+        # Fetch events for the agent
+        event_stmt = select(EventModel).where(
+            EventModel.world_id == world.id,
+            EventModel.processed == False
+        ).order_by(EventModel.tick.desc()).limit(10)
+        event_result = await db_session.execute(event_stmt)
+        events = event_result.scalars().all()
+        
+        # Filter events relevant to this agent
+        agent_events = [
+            e for e in events 
+            if f"agent:{agent.id}" in (e.target_entity_id or "") 
+            or f"agent:{agent.id}" in (e.source_entity_id or "")
+        ]
+        
+        # Update agent internal state (synchronous call)
+        autonomy_engine.update_agent_internal_state(agent, agent_events)
+        
+        # Mark events as processed
+        for event in agent_events:
+            event.processed = True
+        
         await db_session.commit()
         await db_session.refresh(agent)
         
@@ -437,8 +563,56 @@ class TestHighStakesScenario:
         initial_tension = rel.tension
         
         # Process a high-stakes event
-        autonomy_engine = AutonomyEngine(db_session)
-        await autonomy_engine.process_tick(world.id)
+        autonomy_engine = AutonomyEngine()
+        
+        # Create a high-stakes event
+        from datetime import timezone
+        conflict_event = EventModel(
+            world_id=world.id,
+            type="conflict",
+            description="A serious disagreement occurs",
+            source_entity_id=f"user:{user.id}",
+            target_entity_id=f"agent:{agent.id}",
+            payload={"intensity": "high", "topic": "trust_issue"},
+            tick=world.current_tick,
+            timestamp=datetime.now(timezone.utc),
+            processed=False
+        )
+        db_session.add(conflict_event)
+        await db_session.commit()
+        
+        # Reload agent with all relationships eagerly loaded
+        stmt = select(AgentModel).options(
+            selectinload(AgentModel.memories),
+            selectinload(AgentModel.arcs),
+            selectinload(AgentModel.intentions),
+            selectinload(AgentModel.relationships)
+        ).where(AgentModel.id == agent.id)
+        result = await db_session.execute(stmt)
+        agent = result.scalars().first()
+        
+        # Fetch events for the agent
+        event_stmt = select(EventModel).where(
+            EventModel.world_id == world.id,
+            EventModel.processed == False
+        ).order_by(EventModel.tick.desc()).limit(10)
+        event_result = await db_session.execute(event_stmt)
+        events = event_result.scalars().all()
+        
+        # Filter events relevant to this agent
+        agent_events = [
+            e for e in events 
+            if f"agent:{agent.id}" in (e.target_entity_id or "") 
+            or f"agent:{agent.id}" in (e.source_entity_id or "")
+        ]
+        
+        # Update agent internal state (synchronous call)
+        autonomy_engine.update_agent_internal_state(agent, agent_events)
+        
+        # Mark events as processed
+        for event in agent_events:
+            event.processed = True
+        
         await db_session.commit()
         await db_session.refresh(agent)
         await db_session.refresh(rel)

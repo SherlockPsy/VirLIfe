@@ -83,16 +83,21 @@ class GatewayController:
             
             # TODO: Parse user action into world event
             # For now, create a placeholder event
+            from datetime import datetime, timezone
             event_data = {
                 "world_id": world.id,
-                "event_type": request.action_type,
+                "type": request.action_type,
+                "description": f"User action: {request.action_type}",
                 "payload": {
                     "user_id": request.user_id,
                     "action_type": request.action_type,
                     "target_id": request.target_id,
                     "text": request.text,
                     "destination_location_id": request.destination_location_id
-                }
+                },
+                "tick": world.current_tick,
+                "timestamp": datetime.now(timezone.utc),
+                "processed": False
             }
             
             event = await self.world_repo.add_event(event_data)
