@@ -41,6 +41,7 @@ from backend.mapping.semantic_mappers import (
     EnergyMapper, IntentionMapper, PersonalityMapper, MemoryMapper
 )
 from backend.caching import get_redis_service
+from backend.memory import get_qdrant_service
 
 
 @dataclass
@@ -308,14 +309,16 @@ class CognitionService:
     @staticmethod
     async def process_cognition_async(cognition_input: CognitionInput) -> CognitionOutput:
         """
-        Process cognition with Redis caching integration (async version).
+        Process cognition with Redis caching and Qdrant memory integration (async version).
         
         This async wrapper adds:
-        - Cognition cooldown caching (optimization)
-        - LLM response caching by event hash (24h TTL)
-        - Salience context caching (10m TTL)
+        - Cognition cooldown caching via Redis (optimization)
+        - LLM response caching by event hash (24h TTL, Redis)
+        - Salience context caching (10m TTL, Redis)
+        - Episodic and biographical memory retrieval via Qdrant
+        - Memory indexing after successful cognition
         
-        Falls back gracefully to synchronous processing if Redis unavailable.
+        Falls back gracefully to synchronous processing if Redis/Qdrant unavailable.
         
         Args:
             cognition_input: CognitionInput with all required data
@@ -325,8 +328,9 @@ class CognitionService:
         
         Notes:
             - Uses Redis caching for performance (non-authoritative)
-            - Postgres remains source of truth
-            - Identical results with or without Redis
+            - Uses Qdrant for semantic memory retrieval (Postgres-authoritative)
+            - Postgres remains source of truth for all data
+            - Identical results with or without caching layers
         """
         start_time = datetime.now()
         output = CognitionOutput(
@@ -336,8 +340,9 @@ class CognitionService:
         )
         
         try:
-            # Get Redis service (may be None if disabled)
+            # Get Redis and Qdrant services (may be None if disabled)
             redis_service = await get_redis_service()
+            qdrant_service = await get_qdrant_service()
             
             # STEP 0: Check cognition cooldown from cache
             # This optimizes the eligibility check by avoiding database queries
@@ -355,6 +360,23 @@ class CognitionService:
                     output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
                     return output
             
+            # STEP 0.5: Search for relevant memories using Qdrant
+            # These will be included in semantic context for better cognition
+            relevant_memories = []
+            memory_search_query = f"{cognition_input.event_description} {' '.join(cognition_input.event_topics)}"
+            
+            if qdrant_service and await qdrant_service.is_available():
+                try:
+                    relevant_memories = await qdrant_service.search_all_memories(
+                        agent_id=cognition_input.agent_id,
+                        query_text=memory_search_query,
+                        limit=5,  # Limit to top 5 relevant memories
+                        threshold=0.2  # Lower threshold to get more context
+                    )
+                except Exception as e:
+                    # Graceful degradation: continue without Qdrant
+                    output.errors.append(f"Qdrant memory search error: {str(e)}")
+            
             # Run core synchronous cognition
             base_output = CognitionService.process_cognition(cognition_input)
             
@@ -363,7 +385,26 @@ class CognitionService:
                 output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
                 return base_output
             
-            # Cache results after successful cognition
+            # STEP 7: Memory indexing after successful cognition
+            # Index any memories in the event for future retrieval
+            if base_output.llm_called and base_output.llm_response and relevant_memories:
+                # Extract memory-worthy facts from the event
+                memory_description = f"{cognition_input.event_description} - Topics: {', '.join(cognition_input.event_topics)}"
+                
+                if qdrant_service and await qdrant_service.is_available():
+                    try:
+                        # Index this event as an episodic memory for future retrieval
+                        await qdrant_service.index_episodic_memory(
+                            agent_id=cognition_input.agent_id,
+                            memory_id=hash(memory_description) % (10 ** 8),  # Deterministic ID
+                            description=memory_description,
+                            timestamp=cognition_input.event_time.isoformat()
+                        )
+                    except Exception as e:
+                        # Graceful degradation: continue without indexing
+                        output.errors.append(f"Qdrant memory indexing error: {str(e)}")
+            
+            # Cache results after successful cognition (via Redis)
             if base_output.llm_called and base_output.llm_response:
                 # Build context packet for hash (reusing sync version's logic)
                 # This is needed for cache key generation
@@ -465,7 +506,7 @@ class CognitionService:
                         # Graceful degradation: continue without cache
                         output.errors.append(f"Redis cooldown cache error: {str(e)}")
             
-            # Return the base output with any additional errors from caching
+            # Return the base output with any additional errors from caching/memory
             if output.errors:
                 base_output.errors.extend(output.errors)
             

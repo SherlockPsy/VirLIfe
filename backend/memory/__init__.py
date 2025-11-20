@@ -10,6 +10,6 @@ Qdrant-based semantic memory retrieval for:
 Per MASTER_SPEC.md §3.3 (Memory System) and Plan.md §9.6.
 """
 
-from backend.memory.qdrant_service import QdrantService
+from backend.memory.qdrant_service import QdrantService, get_qdrant_service, MemoryHit
 
-__all__ = ["QdrantService"]
+__all__ = ["QdrantService", "get_qdrant_service", "MemoryHit"]
