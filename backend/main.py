@@ -28,12 +28,29 @@ async def get_db_engine():
 async def startup_event():
     """Initialize database tables on startup."""
     try:
+        print("Starting up: Initializing database tables...")
         engine = await get_db_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        print("Database initialization complete.")
     except Exception as e:
-        print(f"Warning: Failed to initialize database tables: {str(e)}")
+        print(f"ERROR during database initialization: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Don't fail startup, just warn
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up database connections on shutdown."""
+    global _db_engine
+    if _db_engine is not None:
+        try:
+            print("Shutting down: Closing database engine...")
+            await _db_engine.dispose()
+            _db_engine = None
+            print("Database engine closed.")
+        except Exception as e:
+            print(f"ERROR during shutdown: {type(e).__name__}: {str(e)}")
 
 @app.get("/health")
 async def health_check():
