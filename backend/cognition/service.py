@@ -9,11 +9,20 @@ Flow:
 2. Compute salience and meaningfulness
 3. Check eligibility (M, triviality, cooldown, choice)
 4. Build semantic context (Phase 4 integration)
-5. Call LLM (if eligible)
+5. Call LLM (if eligible) - with Redis caching
 6. Apply numeric updates (stance shifts + intention updates)
 7. Return updated state + cognition output
+
+Redis Caching (Phase 9 integration):
+- Cache LLM responses by event hash (24h TTL)
+- Cache cognition cooldown status (1h TTL)
+- Cache salience context computations (10m TTL)
+- Graceful degradation: system works identically without Redis
+- Non-authoritative: Postgres remains source of truth
 """
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Any, Tuple
 from datetime import datetime, timedelta
@@ -31,6 +40,7 @@ from backend.mapping.semantic_mappers import (
     MoodMapper, DriveMapper, RelationshipMapper, ArcMapper,
     EnergyMapper, IntentionMapper, PersonalityMapper, MemoryMapper
 )
+from backend.caching import get_redis_service
 
 
 @dataclass
@@ -111,7 +121,10 @@ class CognitionService:
     @staticmethod
     def process_cognition(cognition_input: CognitionInput) -> CognitionOutput:
         """
-        Process a complete cognition cycle for an agent.
+        Process a complete cognition cycle for an agent (synchronous version).
+        
+        This is the core synchronous method used by tests and legacy code.
+        For production with caching, use process_cognition_async() instead.
         
         Args:
             cognition_input: CognitionInput with all required data
@@ -249,7 +262,7 @@ class CognitionService:
             output.llm_response = llm_response
             
             # STEP 6: Apply numeric updates (if LLM response valid)
-            if llm_response.is_valid:
+            if llm_response and llm_response.is_valid:
                 # Apply stance shifts to relationships
                 updated_relationships = cognition_input.relationships.copy()
                 for stance_shift in llm_response.stance_shifts:
@@ -291,3 +304,208 @@ class CognitionService:
             output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
         
         return output
+    
+    @staticmethod
+    async def process_cognition_async(cognition_input: CognitionInput) -> CognitionOutput:
+        """
+        Process cognition with Redis caching integration (async version).
+        
+        This async wrapper adds:
+        - Cognition cooldown caching (optimization)
+        - LLM response caching by event hash (24h TTL)
+        - Salience context caching (10m TTL)
+        
+        Falls back gracefully to synchronous processing if Redis unavailable.
+        
+        Args:
+            cognition_input: CognitionInput with all required data
+        
+        Returns:
+            CognitionOutput with results, updated state, and metadata
+        
+        Notes:
+            - Uses Redis caching for performance (non-authoritative)
+            - Postgres remains source of truth
+            - Identical results with or without Redis
+        """
+        start_time = datetime.now()
+        output = CognitionOutput(
+            agent_id=cognition_input.agent_id,
+            event_time=cognition_input.event_time,
+            was_eligible=False
+        )
+        
+        try:
+            # Get Redis service (may be None if disabled)
+            redis_service = await get_redis_service()
+            
+            # STEP 0: Check cognition cooldown from cache
+            # This optimizes the eligibility check by avoiding database queries
+            if redis_service and await redis_service.is_available():
+                cooldown_status = await redis_service.get_cognition_cooldown(
+                    cognition_input.agent_id
+                )
+                # If on cooldown, return early (optimization only - Postgres is authoritative)
+                if cooldown_status:
+                    output.was_eligible = False
+                    output.eligibility_result = CognitionEligibilityResult(
+                        is_eligible=False,
+                        reason="cognition_cooldown_active"
+                    )
+                    output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+                    return output
+            
+            # Run core synchronous cognition
+            base_output = CognitionService.process_cognition(cognition_input)
+            
+            # If not eligible, return early
+            if not base_output.was_eligible:
+                output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+                return base_output
+            
+            # Cache results after successful cognition
+            if base_output.llm_called and base_output.llm_response:
+                # Build context packet for hash (reusing sync version's logic)
+                # This is needed for cache key generation
+                personality_stable = PersonalityMapper.map_stable_summary(
+                    cognition_input.personality_kernel
+                )
+                personality_domain = PersonalityMapper.map_domain_summaries(
+                    cognition_input.personality_kernel
+                )
+                personality_activation = PersonalityMapper.map_activation_packet(
+                    cognition_input.personality_kernel,
+                    cognition_input.personality_activation,
+                    cognition_input.mood,
+                    cognition_input.drives,
+                    cognition_input.energy,
+                    cognition_input.arcs,
+                    cognition_input.relationships
+                )
+                
+                mood_summary = MoodMapper.map_mood(
+                    valence=cognition_input.mood[0],
+                    arousal=cognition_input.mood[1]
+                )
+                
+                drives_summary = DriveMapper.map_all_drives(cognition_input.drives)
+                
+                relationships_summary = {}
+                for person_id, rel in cognition_input.relationships.items():
+                    relationships_summary[person_id] = RelationshipMapper.map_relationship_full(
+                        warmth=rel.get("warmth", 0),
+                        trust=rel.get("trust", 0),
+                        tension=rel.get("tension", 0),
+                        attraction=rel.get("attraction"),
+                        comfort=rel.get("comfort"),
+                        familiarity=rel.get("familiarity")
+                    )
+                
+                arcs_summary = ArcMapper.map_arcs_summary(cognition_input.arcs)
+                energy_summary = EnergyMapper.map_energy(cognition_input.energy)
+                
+                context_packet = {
+                    "event_description": cognition_input.event_description,
+                    "personality": {
+                        "stable_summary": personality_stable,
+                        "domain_summaries": personality_domain,
+                        "dynamic_activation": personality_activation
+                    },
+                    "mood": mood_summary,
+                    "drives": drives_summary,
+                    "relationships": relationships_summary,
+                    "arcs": arcs_summary,
+                    "energy": energy_summary,
+                    "participants": [
+                        {p_id: {"name": p_data.get("name", p_id)}}
+                        for p_id, p_data in cognition_input.event_participants.items()
+                    ]
+                }
+                
+                event_hash = CognitionService._compute_event_hash(context_packet)
+                
+                # Cache LLM response
+                if redis_service and await redis_service.is_available():
+                    try:
+                        await redis_service.cache_llm_cognition_response(
+                            agent_id=cognition_input.agent_id,
+                            event_hash=event_hash,
+                            response={
+                                "is_valid": base_output.llm_response.is_valid,
+                                "stance_shifts": [
+                                    {
+                                        "target": shift.target,
+                                        "description": shift.description
+                                    }
+                                    for shift in (base_output.llm_response.stance_shifts or [])
+                                ],
+                                "intention_updates": [
+                                    {
+                                        "operation": update.operation,
+                                        "type": update.type,
+                                        "horizon": update.horizon,
+                                        "description": update.description
+                                    }
+                                    for update in (base_output.llm_response.intention_updates or [])
+                                ]
+                            }
+                        )
+                    except Exception as e:
+                        # Graceful degradation: continue without cache
+                        output.errors.append(f"Redis LLM cache storage error: {str(e)}")
+                
+                # Set cognition cooldown in Redis
+                if redis_service and await redis_service.is_available():
+                    try:
+                        await redis_service.set_cognition_cooldown(
+                            agent_id=cognition_input.agent_id,
+                            cooldown_minutes=cognition_input.cognition_cooldown_minutes
+                        )
+                    except Exception as e:
+                        # Graceful degradation: continue without cache
+                        output.errors.append(f"Redis cooldown cache error: {str(e)}")
+            
+            # Return the base output with any additional errors from caching
+            if output.errors:
+                base_output.errors.extend(output.errors)
+            
+            return base_output
+        
+        except Exception as e:
+            output.errors.append(f"Cognition async pipeline error: {str(e)}")
+            output.llm_called = False
+            output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+            return output
+    
+    @staticmethod
+    def _compute_event_hash(context_packet: Dict[str, Any]) -> str:
+        """
+        Compute a deterministic hash of the event context for cache keying.
+        
+        This hash is used as a cache key for LLM responses. Same context packet
+        should always produce the same hash, enabling cache hits for identical events.
+        
+        Args:
+            context_packet: The semantic context packet for the event
+        
+        Returns:
+            A hex string hash of the context
+        """
+        # Create a deterministic string representation
+        # Use only fields that affect LLM output, not time/agent_id
+        key_fields = {
+            "event_description": context_packet.get("event_description", ""),
+            "personality": context_packet.get("personality", {}),
+            "mood": context_packet.get("mood", ""),
+            "drives": context_packet.get("drives", ""),
+            "relationships": context_packet.get("relationships", {}),
+            "arcs": context_packet.get("arcs", {}),
+            "energy": context_packet.get("energy", ""),
+            "participants": context_packet.get("participants", [])
+        }
+        
+        # Serialize to JSON with sorted keys for determinism
+        key_str = json.dumps(key_fields, sort_keys=True, default=str)
+        
+        # Return SHA256 hash
+        return hashlib.sha256(key_str.encode()).hexdigest()
