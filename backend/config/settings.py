@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     app_name: str = "VirLife Backend"
     environment: str = "production"
     database_url: str = ""
+    redis_url: str = ""  # Optional: Phase 9 caching
+    qdrant_url: str = ""  # Optional: Phase 9 vector memory
+    qdrant_api_key: str = ""  # Optional: Phase 9 vector memory
     venice_api_key: str = ""
     venice_base_url: str = "https://api.venice.ai/api/v1"
     

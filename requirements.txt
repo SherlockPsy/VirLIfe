@@ -9,3 +9,5 @@ pytest
 pytest-asyncio
 aiosqlite
 httpx
+redis
+qdrant-client

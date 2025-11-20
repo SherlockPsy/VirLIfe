@@ -14,6 +14,19 @@ from backend.gateway.models import (
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
+# Phase 9: Import caching and memory services for health checks
+try:
+    from backend.caching import get_redis_service
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
+try:
+    from backend.memory import get_qdrant_service
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+
 app = FastAPI(title=settings.app_name)
 
 # Lazy-load database engine
@@ -91,6 +104,8 @@ async def health_check_full():
     checks = {
         "backend": "ok",
         "database": "unknown",
+        "redis": "not_configured",
+        "qdrant": "not_configured",
         "venice_api": "unknown",
         "environment": settings.environment
     }
@@ -104,6 +119,28 @@ async def health_check_full():
     except Exception as e:
         checks["database"] = f"error: {str(e)}"
         raise HTTPException(status_code=503, detail=f"Database unavailable: {str(e)}")
+    
+    # Check Redis (Phase 9)
+    if REDIS_AVAILABLE and settings.redis_url:
+        try:
+            redis_service = await get_redis_service()
+            if redis_service and await redis_service.is_available():
+                checks["redis"] = "ok"
+            else:
+                checks["redis"] = "unavailable"
+        except Exception as e:
+            checks["redis"] = f"error: {str(e)}"
+    
+    # Check Qdrant (Phase 9)
+    if QDRANT_AVAILABLE and settings.qdrant_url:
+        try:
+            qdrant_service = await get_qdrant_service()
+            if qdrant_service and await qdrant_service.is_available():
+                checks["qdrant"] = "ok"
+            else:
+                checks["qdrant"] = "unavailable"
+        except Exception as e:
+            checks["qdrant"] = f"error: {str(e)}"
     
     # Check Venice API
     try:
