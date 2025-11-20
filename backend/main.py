@@ -1,8 +1,16 @@
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
 from backend.config.settings import settings
-from backend.persistence.database import Base
+from backend.persistence.database import Base, AsyncSessionLocal
 from backend.persistence.models import *  # noqa
+from backend.gateway.handlers import GatewayAPI
+from backend.gateway.models import (
+    UserActionRequest, UserActionResponse,
+    WorldAdvanceRequest, WorldAdvanceResponse,
+    RenderRequest, RenderResponse, StatusResponse
+)
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
@@ -23,6 +31,11 @@ async def get_db_engine():
             pool_pre_ping=True  # Verify connection before using
         )
     return _db_engine
+
+async def get_db():
+    """Get database session for dependency injection."""
+    async with AsyncSessionLocal() as session:
+        yield session
 
 @app.on_event("startup")
 async def startup_event():
@@ -118,3 +131,40 @@ async def root():
         "environment": settings.environment,
         "status": "running"
     }
+
+# ============================================================================
+# GATEWAY API ENDPOINTS (PHASE 7)
+# ============================================================================
+
+gateway_api = GatewayAPI()
+
+@app.post("/user/action", response_model=UserActionResponse)
+async def user_action(
+    request: UserActionRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """User performs an action in the world."""
+    return await gateway_api.user_action(request, db)
+
+@app.post("/world/advance", response_model=WorldAdvanceResponse)
+async def world_advance(
+    request: WorldAdvanceRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Advance world time by N ticks."""
+    return await gateway_api.world_advance(request, db)
+
+@app.get("/render", response_model=RenderResponse)
+async def render(
+    user_id: int,
+    pov: str = "second_person",
+    db: AsyncSession = Depends(get_db)
+):
+    """Render perceptual experience for user."""
+    request = RenderRequest(user_id=user_id, pov=pov)
+    return await gateway_api.render(request, db)
+
+@app.get("/status", response_model=StatusResponse)
+async def status(db: AsyncSession = Depends(get_db)):
+    """Get system status."""
+    return await gateway_api.status(db)
