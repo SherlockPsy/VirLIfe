@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "VirLife Backend"
-    environment: str = "development"
+    environment: str = "production"
     database_url: str = "postgresql+asyncpg://user:password@localhost/virlife"
     
     model_config = SettingsConfigDict(env_file=".env")

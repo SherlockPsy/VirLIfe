@@ -226,46 +226,46 @@ This phase MUST precede Autonomy Engine development.
 - correctness of unexpected event (incursion) generation from world state  
 
 ======================================================================
-# PHASE 3 — AUTONOMY ENGINE (NUMERIC PSYCHOLOGY)
+# PHASE 3 — AUTONOMY ENGINE (NUMERIC PSYCHOLOGY) [COMPLETED]
 ======================================================================
 
 **Goal:** Implement numeric internal life of every agent without any LLM calls.
 
 ### Tasks:
 
-3.1 Implement drive update rules.
+3.1 Implement drive update rules. [DONE]
 
-3.2 Implement mood system (valence × arousal).
+3.2 Implement mood system (valence × arousal). [DONE]
 
-3.3 Implement arcs:
+3.3 Implement arcs: [DONE]
 - creation  
 - reinforcement  
 - decay  
 
-3.4 Implement relationship updates:
+3.4 Implement relationship updates: [DONE]
 - warmth / trust / tension  
 - drift rules  
 - consistency constraints  
 
-3.5 Implement intentions:
+3.5 Implement intentions: [DONE]
 - create  
 - update  
 - drop via deterministic rules  
 
-3.6 Implement energy model.
+3.6 Implement energy model. [DONE]
 
-3.7 Implement episodic memory creation + salience update.
+3.7 Implement episodic memory creation + salience update. [DONE]
 
-3.8 Implement biographical memory ingestion (from explicit disclosures + stable repeated patterns).
+3.8 Implement biographical memory ingestion (from explicit disclosures + stable repeated patterns). [DONE]
 
-3.9 Initialize personality activation state from kernel each tick.
+3.9 Initialize personality activation state from kernel each tick. [DONE]
 
-3.10 Ensure that:
+3.10 Ensure that: [DONE]
 - calendar/obligation events feed into decision pressure and intention logic,
 - unexpected events influence drives, mood, arcs, and relationships via deterministic rules,
 - NO new psychological variables are created for calendars or incursions.
 
-3.11 Write autonomy tests:
+3.11 Write autonomy tests: [DONE]
 - numeric updates  
 - relationship drift  
 - arc behaviour  
