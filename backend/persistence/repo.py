@@ -3,7 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from backend.persistence.models import (
     AgentModel, WorldModel, LocationModel, RelationshipModel, 
-    MemoryModel, ArcModel, IntentionModel, EventModel, UserModel
+    MemoryModel, ArcModel, IntentionModel, EventModel, UserModel, CalendarModel
 )
 from typing import List, Optional
 import datetime
@@ -61,6 +61,33 @@ class AgentRepo:
 
     async def list_agents_in_location(self, location_id: int) -> List[AgentModel]:
         stmt = select(AgentModel).where(AgentModel.location_id == location_id)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_calendar_items(self, agent_id: int, start_time: datetime.datetime = None, end_time: datetime.datetime = None) -> List[CalendarModel]:
+        stmt = select(CalendarModel).where(CalendarModel.agent_id == agent_id)
+        if start_time:
+            stmt = stmt.where(CalendarModel.start_time >= start_time)
+        if end_time:
+            stmt = stmt.where(CalendarModel.start_time <= end_time)
+        stmt = stmt.order_by(CalendarModel.start_time.asc())
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def add_calendar_item(self, item_data: dict) -> CalendarModel:
+        item = CalendarModel(**item_data)
+        self.session.add(item)
+        await self.session.flush()
+        return item
+
+    async def get_upcoming_calendar_items(self, start_time: datetime.datetime, end_time: datetime.datetime) -> List[CalendarModel]:
+        """
+        Global query for calendar items across all agents in a time window.
+        """
+        stmt = select(CalendarModel).where(
+            CalendarModel.start_time >= start_time,
+            CalendarModel.start_time <= end_time
+        ).options(selectinload(CalendarModel.agent))
         result = await self.session.execute(stmt)
         return result.scalars().all()
 

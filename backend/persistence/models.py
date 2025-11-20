@@ -83,6 +83,8 @@ class AgentModel(Base):
     
     # Relationships originating from this agent
     relationships = relationship("RelationshipModel", foreign_keys="[RelationshipModel.source_agent_id]", back_populates="source_agent")
+    
+    calendar_items = relationship("CalendarModel", back_populates="agent")
 
 class RelationshipModel(Base):
     __tablename__ = "relationships"
@@ -186,3 +188,28 @@ class EventModel(Base):
     processed = Column(Boolean, default=False)
     
     world = relationship("WorldModel", back_populates="events")
+
+class CalendarModel(Base):
+    __tablename__ = "calendars"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    
+    # Type: "appointment", "obligation", "plan", "routine"
+    type = Column(String, default="appointment")
+    
+    # Status: "pending", "active", "completed", "missed", "cancelled"
+    status = Column(String, default="pending")
+    
+    # Recurrence rule (optional, simplified for now)
+    recurrence_rule = Column(String, nullable=True) 
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    agent = relationship("AgentModel", back_populates="calendar_items")
