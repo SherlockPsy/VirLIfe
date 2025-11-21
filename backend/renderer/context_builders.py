@@ -87,11 +87,11 @@ class RendererPerceptionBuilder:
         
         # Check for incursions
         perceivable_incursion = None
-        if current_event and current_event.event_type:
-            if "incursion" in current_event.event_type.lower():
+        if current_event and current_event.type:
+            if "incursion" in current_event.type.lower():
                 perceivable_incursion = IncursionRenderer.prepare_incursion_context(
                     incursion_description=event_description,
-                    incursion_type=current_event.event_type,
+                    incursion_type=current_event.type,
                     perceiver_type=perceiver_type
                 )
         
@@ -191,10 +191,11 @@ class RendererPerceptionBuilder:
                 parts.append("seems energetic")
         
         # Observable mood (from behavior, not internal state)
-        if hasattr(agent, 'mood_valence') and agent.mood_valence:
-            if agent.mood_valence < -0.3:
+        if hasattr(agent, 'mood') and agent.mood:
+            mood_valence = agent.mood.get("valence", 0) if isinstance(agent.mood, dict) else 0
+            if mood_valence < -0.3:
                 parts.append("looks downcast")
-            elif agent.mood_valence > 0.3:
+            elif mood_valence > 0.3:
                 parts.append("seems cheerful")
         
         if parts:
@@ -238,7 +239,7 @@ class RendererPerceptionBuilder:
         if not event:
             return ("The scene is quiet.", "routine")
         
-        event_type = event.event_type or "interaction"
+        event_type = event.type or "interaction"
         
         if event.payload:
             description = event.payload.get("description", "Something happens.")

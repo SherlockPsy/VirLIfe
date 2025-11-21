@@ -191,6 +191,25 @@ class DriveMapper:
         return result
     
     @staticmethod
+    def map_all_drives(drives: Dict[str, float]) -> Dict[str, str]:
+        """
+        Maps all drives to semantic summaries when drives are Dict[str, float].
+        This is a convenience method for when drives are already flattened.
+        
+        Args:
+            drives: Dict of {drive_name: level} where level is float [0.0, 1.0]
+            
+        Returns:
+            Dict of {drive_name: semantic_description}
+        """
+        result = {}
+        for drive_name in DriveMapper.DRIVE_NAMES:
+            if drive_name in drives:
+                level = drives[drive_name]
+                result[drive_name] = DriveMapper.map_drive(drive_name, level)
+        return result
+    
+    @staticmethod
     def get_highest_pressure_drives(drives: Dict[str, Dict], top_k: int = 2) -> List[Tuple[str, str]]:
         """
         Returns the top K most pressured (highest level) drives with semantic descriptions.
@@ -361,18 +380,29 @@ class ArcMapper:
             return f"There is an active but balanced thread around {topic}."
     
     @staticmethod
-    def map_arcs_summary(arcs: List[Dict]) -> List[str]:
+    def map_arcs_summary(arcs) -> List[str]:
         """
         Maps all active arcs to semantic descriptions.
         
         Args:
-            arcs: List of arc dicts with keys: intensity, valence_bias, topic_vector (list of keywords)
+            arcs: Either List[Dict] or Dict[str, Dict] of arc dicts with keys: intensity, valence_bias, topic_vector (list of keywords)
             
         Returns:
             List of semantic arc descriptions
         """
         summaries = []
-        for arc in arcs:
+        
+        # Handle both List[Dict] and Dict[str, Dict] formats
+        if isinstance(arcs, dict):
+            arc_list = list(arcs.values())
+        elif isinstance(arcs, list):
+            arc_list = arcs
+        else:
+            return summaries
+        
+        for arc in arc_list:
+            if not isinstance(arc, dict):
+                continue
             if arc.get("intensity", 0) < 0.2:  # Skip very weak arcs
                 continue
             
@@ -476,18 +506,26 @@ class IntentionMapper:
             return f"She has an intention regarding {topic}."
     
     @staticmethod
-    def map_intentions_summary(intentions: List[Dict]) -> List[str]:
+    def map_intentions_summary(intentions) -> List[str]:
         """
         Maps high-priority intentions to semantic descriptions.
         
         Args:
-            intentions: List of intention dicts with keys: type, priority, target (optional), horizon
+            intentions: Either List[Dict] or Dict[str, Dict] of intention dicts with keys: type, priority, target (optional), horizon
             
         Returns:
             List of semantic intention descriptions (high-priority only)
         """
+        # Handle both List[Dict] and Dict[str, Dict] formats
+        if isinstance(intentions, dict):
+            intention_list = list(intentions.values())
+        elif isinstance(intentions, list):
+            intention_list = intentions
+        else:
+            return []
+        
         # Filter to medium+ priority
-        high_priority = [i for i in intentions if i.get("priority", 0) >= 0.4]
+        high_priority = [i for i in intention_list if isinstance(i, dict) and i.get("priority", 0) >= 0.4]
         # Sort by priority descending
         high_priority.sort(key=lambda i: i.get("priority", 0), reverse=True)
         
@@ -501,6 +539,14 @@ class IntentionMapper:
             summaries.append(summary)
         
         return summaries
+    
+    @staticmethod
+    def map_intentions(intentions) -> List[str]:
+        """
+        Alias for map_intentions_summary for backward compatibility.
+        Maps high-priority intentions to semantic descriptions.
+        """
+        return IntentionMapper.map_intentions_summary(intentions)
 
 
 class MemoryMapper:
@@ -561,6 +607,33 @@ class MemoryMapper:
             return MemoryMapper.format_biographical_memory(description)
         else:
             return MemoryMapper.format_episodic_memory(description)
+    
+    @staticmethod
+    def format_memories(memories: Dict[str, List[Dict]]) -> List[str]:
+        """
+        Formats memories from CognitionInput format.
+        
+        Args:
+            memories: Dict with keys "episodic" and "biographical", each containing List[Dict]
+            
+        Returns:
+            List of formatted memory strings
+        """
+        formatted = []
+        
+        # Format episodic memories
+        episodic = memories.get("episodic", [])
+        for mem in episodic:
+            if isinstance(mem, dict):
+                formatted.append(MemoryMapper.format_memory_snippet(mem))
+        
+        # Format biographical memories
+        biographical = memories.get("biographical", [])
+        for mem in biographical:
+            if isinstance(mem, dict):
+                formatted.append(MemoryMapper.format_memory_snippet(mem))
+        
+        return formatted
 
 
 class PersonalityMapper:
@@ -873,3 +946,54 @@ class PersonalityMapper:
             activations.append("She is in her baseline state.")
         
         return " ".join(activations[:2])  # Limit to 2-3 activation notes
+    
+    @staticmethod
+    def map_stable_summary(kernel: Dict[str, float], name: str = "She") -> str:
+        """
+        Alias for kernel_to_stable_summary for backward compatibility.
+        """
+        return PersonalityMapper.kernel_to_stable_summary(kernel, name)
+    
+    @staticmethod
+    def map_domain_summaries(kernel: Dict[str, float]) -> Dict[str, str]:
+        """
+        Alias for kernel_to_domain_summaries for backward compatibility.
+        """
+        return PersonalityMapper.kernel_to_domain_summaries(kernel)
+    
+    @staticmethod
+    def map_activation_packet(
+        kernel: Dict[str, float],
+        activation: Dict[str, float],
+        mood: Tuple[float, float],
+        drives: Dict[str, float],
+        energy: float,
+        arcs: Dict[str, Dict],
+        relationships: Dict[str, Dict]
+    ) -> str:
+        """
+        Alias for compute_dynamic_activation_packet with adapted signature.
+        Converts mood tuple and drives/flattened formats to expected formats.
+        """
+        # Convert mood tuple to dict
+        mood_dict = {"valence": mood[0], "arousal": mood[1]}
+        
+        # Convert drives Dict[str, float] to Dict[str, Dict]
+        drives_dict = {}
+        for drive_name, level in drives.items():
+            drives_dict[drive_name] = {"level": level}
+        
+        # Convert arcs Dict[str, Dict] to List[Dict]
+        arcs_list = list(arcs.values()) if isinstance(arcs, dict) else arcs
+        
+        # Convert relationships Dict[str, Dict] to List[Dict]
+        relationships_list = list(relationships.values()) if isinstance(relationships, dict) else relationships
+        
+        return PersonalityMapper.compute_dynamic_activation_packet(
+            kernel=kernel,
+            drives=drives_dict,
+            mood=mood_dict,
+            arcs=arcs_list,
+            relationships=relationships_list,
+            energy=energy
+        )

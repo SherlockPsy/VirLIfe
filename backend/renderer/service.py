@@ -358,17 +358,17 @@ class RenderEngine:
         # Determine event description
         if current_event:
             event_description = self._describe_event(current_event)
-            event_type = current_event.event_type or "interaction"
+            event_type = current_event.type or "interaction"
         else:
             event_description = "The scene is quiet."
             event_type = "routine"
         
         # Check for incursions (unexpected events)
         perceivable_incursion = None
-        if current_event and current_event.event_type and "incursion" in current_event.event_type.lower():
+        if current_event and current_event.type and "incursion" in current_event.type.lower():
             perceivable_incursion = IncursionRenderer.prepare_incursion_context(
                 incursion_description=event_description,
-                incursion_type=current_event.event_type,
+                incursion_type=current_event.type,
                 perceiver_type=perceiver_type
             )
         
@@ -421,7 +421,9 @@ class RenderEngine:
         agent_personalities = {}
         for agent in visible_agents:
             # Get personality summary (semantic, not numeric)
-            personality_summary = agent.personality_summary or "A person."
+            # personality_summaries is a JSON field, extract stable summary if available
+            personality_summaries = agent.personality_summaries or {}
+            personality_summary = personality_summaries.get("stable", "A person.") if isinstance(personality_summaries, dict) else "A person."
             domain_summaries = agent.domain_summaries or {}
             
             # Build personality context
@@ -449,8 +451,8 @@ class RenderEngine:
                 "agent_id": agent.id,
                 "personality_kernel": agent.personality_kernel or {},
                 "domain_summaries": agent.domain_summaries or {},
-                "personality_summary": agent.personality_summary or "",
-                "mood": {"valence": agent.mood_valence or 0, "arousal": agent.mood_arousal or 0},
+                "personality_summary": (agent.personality_summaries.get("stable", "") if isinstance(agent.personality_summaries, dict) else "") or "",
+                "mood": {"valence": agent.mood.get("valence", 0) if isinstance(agent.mood, dict) else 0, "arousal": agent.mood.get("arousal", 0) if isinstance(agent.mood, dict) else 0},
                 "energy": agent.energy or 0.5,
                 "drives": {},
                 "arcs": [],

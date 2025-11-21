@@ -59,8 +59,10 @@ class AgentRepo:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def list_agents_in_location(self, location_id: int) -> List[AgentModel]:
-        stmt = select(AgentModel).where(AgentModel.location_id == location_id)
+    async def list_agents_in_location(self, location_id: Optional[int]) -> List[AgentModel]:
+        stmt = select(AgentModel)
+        if location_id is not None:
+            stmt = stmt.where(AgentModel.location_id == location_id)
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
