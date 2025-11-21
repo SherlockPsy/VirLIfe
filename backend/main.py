@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from backend.config.settings import settings
-from backend.persistence.database import Base, AsyncSessionLocal
+from backend.persistence.database import Base, AsyncSessionLocal, get_db as get_db_from_database
 from backend.persistence.models import *  # noqa
 from backend.gateway.handlers import GatewayAPI
 from backend.gateway.models import (
@@ -45,10 +45,8 @@ async def get_db_engine():
         )
     return _db_engine
 
-async def get_db():
-    """Get database session for dependency injection."""
-    async with AsyncSessionLocal() as session:
-        yield session
+# Use get_db from database.py which has proper cleanup
+get_db = get_db_from_database
 
 @app.on_event("startup")
 async def startup_event():

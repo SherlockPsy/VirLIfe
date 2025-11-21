@@ -421,7 +421,9 @@ class RenderEngine:
         agent_personalities = {}
         for agent in visible_agents:
             # Get personality summary (semantic, not numeric)
-            personality_summary = agent.personality_summary or "A person."
+            # personality_summaries is a JSON dict with "stable" and "domain" keys
+            personality_summaries = agent.personality_summaries or {}
+            personality_summary = personality_summaries.get("stable", "A person.") if isinstance(personality_summaries, dict) else "A person."
             domain_summaries = agent.domain_summaries or {}
             
             # Build personality context
@@ -449,8 +451,8 @@ class RenderEngine:
                 "agent_id": agent.id,
                 "personality_kernel": agent.personality_kernel or {},
                 "domain_summaries": agent.domain_summaries or {},
-                "personality_summary": agent.personality_summary or "",
-                "mood": {"valence": agent.mood_valence or 0, "arousal": agent.mood_arousal or 0},
+                "personality_summary": (agent.personality_summaries.get("stable", "") if isinstance(agent.personality_summaries, dict) else "") or "",
+                "mood": {"valence": (agent.mood.get("valence", 0) if isinstance(agent.mood, dict) else 0), "arousal": (agent.mood.get("arousal", 0) if isinstance(agent.mood, dict) else 0)},
                 "energy": agent.energy or 0.5,
                 "drives": {},
                 "arcs": [],

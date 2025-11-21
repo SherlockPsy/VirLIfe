@@ -21,7 +21,7 @@ import hashlib
 
 try:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import PointStruct, VectorParams, Distance
+    from qdrant_client.models import PointStruct, VectorParams, Distance, Filter, FieldCondition, MatchValue
 except ImportError:
     QdrantClient = None
     logger = logging.getLogger(__name__)
@@ -301,10 +301,20 @@ class QdrantService:
         try:
             query_vector = self._embed_text(query_text)
             
+            # Build proper Qdrant filter
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="agent_id",
+                        match=MatchValue(value=agent_id)
+                    )
+                ]
+            )
+            
             results = self.client.search(
                 collection_name=self.COLLECTION_EPISODIC,
                 query_vector=query_vector,
-                query_filter=f"agent_id == {agent_id}",  # Filter by agent
+                query_filter=query_filter,
                 limit=limit
             )
             
@@ -352,10 +362,20 @@ class QdrantService:
         try:
             query_vector = self._embed_text(query_text)
             
+            # Build proper Qdrant filter
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="agent_id",
+                        match=MatchValue(value=agent_id)
+                    )
+                ]
+            )
+            
             results = self.client.search(
                 collection_name=self.COLLECTION_BIOGRAPHICAL,
                 query_vector=query_vector,
-                query_filter=f"agent_id == {agent_id}",
+                query_filter=query_filter,
                 limit=limit
             )
             

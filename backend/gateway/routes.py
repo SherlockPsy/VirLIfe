@@ -15,7 +15,7 @@ Routes are registered in backend/main.py.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.persistence.database import AsyncSessionLocal
+from backend.persistence.database import AsyncSessionLocal, get_db as get_db_from_database
 from backend.gateway.controller import GatewayController
 from backend.gateway.models import (
     UserActionRequest, UserActionResponse,
@@ -26,10 +26,8 @@ from backend.gateway.models import (
 router = APIRouter(prefix="/api/v1", tags=["gateway"])
 
 
-async def get_db():
-    """Get database session for dependency injection."""
-    async with AsyncSessionLocal() as session:
-        yield session
+# Use get_db from database.py which has proper cleanup
+get_db = get_db_from_database
 
 
 async def get_controller(db: AsyncSession = Depends(get_db)) -> GatewayController:

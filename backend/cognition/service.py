@@ -380,10 +380,20 @@ class CognitionService:
             # Run core synchronous cognition
             base_output = CognitionService.process_cognition(cognition_input)
             
+            # Copy base_output fields to output
+            output.was_eligible = base_output.was_eligible
+            output.eligibility_result = base_output.eligibility_result
+            output.llm_called = base_output.llm_called
+            output.llm_response = base_output.llm_response
+            output.updated_relationships = base_output.updated_relationships
+            output.updated_intentions = base_output.updated_intentions
+            output.updated_drives = base_output.updated_drives
+            output.errors = base_output.errors.copy() if base_output.errors else []
+            
             # If not eligible, return early
             if not base_output.was_eligible:
                 output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
-                return base_output
+                return output
             
             # STEP 7: Memory indexing after successful cognition
             # Index any memories in the event for future retrieval
@@ -506,11 +516,9 @@ class CognitionService:
                         # Graceful degradation: continue without cache
                         output.errors.append(f"Redis cooldown cache error: {str(e)}")
             
-            # Return the base output with any additional errors from caching/memory
-            if output.errors:
-                base_output.errors.extend(output.errors)
-            
-            return base_output
+            # Return output with all errors merged
+            output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+            return output
         
         except Exception as e:
             output.errors.append(f"Cognition async pipeline error: {str(e)}")

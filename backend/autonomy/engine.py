@@ -62,6 +62,9 @@ class AutonomyEngine:
             for drive, effect in effects.items():
                 if drive in deltas:
                     # Apply sensitivity
+                    # Ensure drives dict exists and is not None
+                    if agent.drives is None:
+                        agent.drives = {}
                     sensitivity = agent.drives.get(drive, {}).get("sensitivity", 1.0)
                     deltas[drive] += effect * sensitivity
                     
@@ -117,6 +120,9 @@ class AutonomyEngine:
         """
         Applies deltas to agent drives, clamping to [0.0, 1.0].
         """
+        # Ensure drives dict exists and is not None
+        if agent.drives is None:
+            agent.drives = {}
         current_drives = agent.drives.copy() # Ensure we don't mutate in place without reassignment if it's a dict
         
         for drive in self.DRIVE_NAMES:
@@ -136,6 +142,9 @@ class AutonomyEngine:
         """
         Updates Valence and Arousal (Law 2).
         """
+        # Ensure mood dict exists and is not None
+        if agent.mood is None:
+            agent.mood = {"valence": 0.0, "arousal": 0.0}
         current_mood = agent.mood.copy()
         valence = current_mood.get("valence", 0.0)
         arousal = current_mood.get("arousal", 0.0)
@@ -174,6 +183,9 @@ class AutonomyEngine:
         Applies baseline drift to drives and mood decay.
         """
         # Drive Drift
+        # Ensure drives dict exists and is not None
+        if agent.drives is None:
+            agent.drives = {}
         current_drives = agent.drives.copy()
         for drive in self.DRIVE_NAMES:
             if drive in current_drives:
@@ -184,6 +196,9 @@ class AutonomyEngine:
         agent.drives = current_drives
         
         # Mood Decay
+        # Ensure mood dict exists and is not None
+        if agent.mood is None:
+            agent.mood = {"valence": 0.0, "arousal": 0.0}
         current_mood = agent.mood.copy()
         valence = current_mood.get("valence", 0.0)
         arousal = current_mood.get("arousal", 0.0)
@@ -474,6 +489,9 @@ class AutonomyEngine:
         # If event affects a drive that is currently extreme (very low or very high)
         effects = self._map_event_to_drive_effects(event)
         for drive, effect in effects.items():
+            # Ensure drives dict exists and is not None
+            if agent.drives is None:
+                agent.drives = {}
             current_level = agent.drives.get(drive, {}).get("level", 0.5)
             if abs(current_level - 0.5) > 0.3: # Extreme drive
                 salience += 0.2

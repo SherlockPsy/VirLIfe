@@ -191,10 +191,17 @@ class RendererPerceptionBuilder:
                 parts.append("seems energetic")
         
         # Observable mood (from behavior, not internal state)
-        if hasattr(agent, 'mood_valence') and agent.mood_valence:
-            if agent.mood_valence < -0.3:
+        # mood is stored as a JSON dict with "valence" and "arousal" keys
+        if isinstance(agent, dict):
+            mood = agent.get("mood", {})
+        else:
+            mood = getattr(agent, "mood", {})
+        
+        if isinstance(mood, dict):
+            mood_valence = mood.get("valence", 0)
+            if mood_valence < -0.3:
                 parts.append("looks downcast")
-            elif agent.mood_valence > 0.3:
+            elif mood_valence > 0.3:
                 parts.append("seems cheerful")
         
         if parts:
