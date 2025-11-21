@@ -214,3 +214,69 @@ class CalendarModel(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     agent = relationship("AgentModel", back_populates="calendar_items")
+
+# PFEE Models - Defined here to ensure they're in the schema
+class PotentialModel(Base):
+    """Database model for latent potentials."""
+    __tablename__ = "pfee_potentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    context_type = Column(String, nullable=False)
+    potential_type = Column(String, nullable=False)
+    parameters = Column(JSON, default={}, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    is_resolved = Column(Boolean, default=False, nullable=False)
+
+
+class InfluenceFieldModel(Base):
+    """Database model for influence fields."""
+    __tablename__ = "pfee_influence_fields"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    
+    mood_offset = Column(JSON, default={}, nullable=False)
+    drive_pressures = Column(JSON, default={}, nullable=False)
+    pending_contact_probability = Column(Float, default=0.0, nullable=False)
+    unresolved_tension_topics = Column(JSON, default=[], nullable=False)
+    
+    last_updated_timestamp = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class InfoEventModel(Base):
+    """Database model for information events."""
+    __tablename__ = "pfee_info_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, nullable=False)
+    sender_id = Column(Integer, nullable=True)
+    sender_type = Column(String, nullable=True)
+    recipient_id = Column(Integer, nullable=True)
+    recipient_type = Column(String, nullable=True)
+    
+    content = Column(Text, nullable=True)
+    metadata = Column(JSON, default={}, nullable=False)
+    
+    scheduled_time = Column(DateTime(timezone=True), nullable=False)
+    delivered = Column(Boolean, default=False, nullable=False)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PFEELogModel(Base):
+    """Database model for PFEE logs."""
+    __tablename__ = "pfee_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    log_level = Column(String, nullable=False)
+    cycle_id = Column(String, nullable=True)
+    
+    component = Column(String, nullable=False)
+    event_type = Column(String, nullable=True)
+    message = Column(Text, nullable=False)
+    metadata = Column(JSON, default={}, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

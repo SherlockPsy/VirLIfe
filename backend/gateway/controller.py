@@ -21,8 +21,8 @@ from datetime import datetime, timezone
 
 from backend.world.engine import WorldEngine
 from backend.autonomy.engine import AutonomyEngine
-from backend.cognition.service import CognitionService
-from backend.renderer.service import RenderEngine
+from backend.pfee.orchestrator import PerceptionOrchestrator
+from backend.pfee.world_state_builder import build_world_state_for_pfee
 from backend.gateway.models import (
     UserActionRequest, UserActionResponse,
     WorldAdvanceRequest, WorldAdvanceResponse,
@@ -55,8 +55,7 @@ class GatewayController:
         self.session = session
         self.world_engine = WorldEngine(session)
         self.autonomy_engine = AutonomyEngine()
-        self.cognition_service = CognitionService()
-        self.render_engine = RenderEngine(session)
+        self.pfee_orchestrator = PerceptionOrchestrator(session)
         self.world_repo = WorldRepo(session)
         self.agent_repo = AgentRepo(session)
         self.user_repo = UserRepo(session)
@@ -124,103 +123,59 @@ class GatewayController:
             event = await self.world_repo.add_event(event_data)
             logger.info(f"Created event: id={event.id}, type={event.type}")
             
-            # Get agents in the same location (affected by user action)
-            affected_agents = await self.agent_repo.list_agents_in_location(location_id)
-            logger.info(f"[PIPELINE] Found {len(affected_agents)} agents in location {location_id}")
-            if affected_agents:
-                logger.info(f"[PIPELINE] Agent names: {[a.name for a in affected_agents]}")
-            else:
-                logger.warning(f"[PIPELINE] No agents found in location {location_id} - cognition will not be triggered")
+            # Build world state for PFEE
+            world_state = await build_world_state_for_pfee(
+                self.session, world, request.user_id
+            )
             
-            # Trigger cognition for affected agents
-            cognition_outputs = []
-            for agent in affected_agents:
-                try:
-                    # Build cognition input from agent state and event
-                    # For now, use a simplified version - full implementation would use mapping layer
-                    from backend.cognition.service import CognitionInput, EventTrivialityClassification, BehavioralChoice
-                    
-                    # Determine if event is meaningful for this agent
-                    # Simple heuristic: speech actions are meaningful
-                    is_meaningful = request.action_type == "speak" and request.text
-                    
-                    if is_meaningful:
-                        # Build basic cognition input
-                        # Note: Full implementation would extract all agent state properly
-                        cognition_input = CognitionInput(
-                            agent_id=str(agent.id),
-                            event_type=request.action_type,
-                            event_time=datetime.now(timezone.utc),
-                            event_description=event_description,
-                            personality_kernel=agent.personality_kernel or {},
-                            personality_activation={},
-                            mood=(agent.mood_valence or 0.0, agent.mood_arousal or 0.0),
-                            drives={},
-                            arcs={},
-                            energy=agent.energy or 0.5,
-                            relationships={},
-                            intentions={},
-                            memories={},
-                            event_participants={str(request.user_id): {"name": f"user_{request.user_id}", "role": "user"}},
-                            event_topics=[],
-                            event_triviality=EventTrivialityClassification.NON_TRIVIAL,
-                            behavioral_choices=[]
-                        )
-                        
-                        # Run cognition
-                        output = await self.cognition_service.process_cognition(cognition_input)
-                        cognition_outputs.append(output)
-                        logger.info(f"Cognition processed for agent {agent.id}: eligible={output.was_eligible}, llm_called={output.llm_called}")
-                        
-                        # Update agent state from cognition output
-                        if output.updated_relationships:
-                            # Apply relationship updates
-                            pass  # TODO: Apply updates to agent model
-                        if output.updated_intentions:
-                            # Apply intention updates
-                            pass  # TODO: Apply updates to agent model
-                        if output.updated_drives:
-                            # Apply drive updates
-                            pass  # TODO: Apply updates to agent model
-                            
-                except Exception as e:
-                    logger.error(f"Error processing cognition for agent {agent.id}: {str(e)}", exc_info=True)
-                    # Continue with other agents
+            # Build user action dict for PFEE
+            user_action = {
+                "type": request.action_type,
+                "text": request.text,
+                "target_id": request.target_id,
+                "destination_location_id": request.destination_location_id,
+                "user_id": request.user_id
+            }
             
-            # Commit event and any state changes
-            await self.session.commit()
-            
-            # Render new perception for user
+            # Run PFEE perception cycle
+            # This handles: trigger evaluation, cognition, renderer, consequence integration
+            logger.info(f"[PFEE] Running perception cycle for user action")
             try:
-                logger.info(f"[PIPELINE] Starting render for user {request.user_id}")
-                narrative = await self.render_engine.render_world_state(
-                    perceiver_id=request.user_id,
-                    perceiver_type="user"
+                perception_result = await self.pfee_orchestrator.run_perception_cycle(
+                    world_state=world_state,
+                    optional_user_action=user_action
                 )
-                logger.info(f"[PIPELINE] Rendered narrative (length={len(narrative)}): {narrative[:200]}...")
                 
-                # Generate fallback narrative if renderer returned placeholder
+                # Get narrative from perception result
+                narrative = perception_result.text
+                
+                # If no narrative, generate fallback
                 if not narrative or narrative in ["The world is empty.", "You are nowhere.", "You are in an unknown place."]:
-                    logger.info(f"[PIPELINE] Renderer returned placeholder, generating fallback narrative")
+                    logger.info(f"[PFEE] No narrative from orchestrator, generating fallback")
                     visible_agents = await self.agent_repo.list_agents_in_location(location_id)
                     
                     if visible_agents:
                         agent_names = [a.name for a in visible_agents]
                         narrative = f"After your action, the scene remains quiet. {', '.join(agent_names)} are here with you."
                     else:
-                        # Generate a response based on the user's action
                         if request.action_type == "speak" and request.text:
                             narrative = f"Your words echo in the quiet space: '{request.text}'. The world around you remains still, waiting."
                         else:
                             narrative = f"After your {request.action_type}, the world around you remains still and quiet."
-                    
-                    logger.info(f"[PIPELINE] Generated fallback narrative: {narrative}")
                 
-                # Check if we have a valid broadcast function
-                logger.info(f"[PIPELINE] WebSocket broadcast function available: {self.websocket_broadcast is not None}")
+                logger.info(f"[PFEE] Perception cycle complete, narrative length: {len(narrative) if narrative else 0}")
                 
-                # Broadcast renderer output over WebSocket
-                if self.websocket_broadcast and narrative:
+            except Exception as e:
+                logger.error(f"[PFEE] Error in perception cycle: {str(e)}", exc_info=True)
+                # Fallback to simple narrative
+                narrative = f"After your {request.action_type}, the world responds."
+            
+            # Commit all changes (PFEE orchestrator handles state updates)
+            await self.session.commit()
+            
+            # Broadcast renderer output over WebSocket
+            if self.websocket_broadcast and narrative:
+                try:
                     ws_message = {
                         "type": "perception",
                         "content": narrative,
@@ -232,21 +187,10 @@ class GatewayController:
                             "isIncursion": False
                         }
                     }
-                    # Call broadcast function (it's async)
-                    try:
-                        logger.info(f"[PIPELINE] Attempting to broadcast WebSocket message: {ws_message}")
-                        await self.websocket_broadcast(ws_message)
-                        logger.info(f"[PIPELINE] Successfully broadcast WebSocket message: {narrative[:50]}...")
-                    except Exception as e:
-                        logger.error(f"[PIPELINE] Error broadcasting WebSocket message: {str(e)}", exc_info=True)
-                else:
-                    if not self.websocket_broadcast:
-                        logger.warning(f"[PIPELINE] WebSocket broadcast function is None - cannot broadcast")
-                    if not narrative:
-                        logger.warning(f"[PIPELINE] Narrative is empty - cannot broadcast")
-            except Exception as e:
-                logger.error(f"[PIPELINE] Error rendering or broadcasting: {str(e)}", exc_info=True)
-                # Don't fail the request if rendering/broadcast fails
+                    await self.websocket_broadcast(ws_message)
+                    logger.info(f"[PFEE] Broadcast WebSocket message: {narrative[:50]}...")
+                except Exception as e:
+                    logger.error(f"[PFEE] Error broadcasting WebSocket: {str(e)}", exc_info=True)
             
             return UserActionResponse(
                 success=True,
@@ -345,27 +289,37 @@ class GatewayController:
             # Default to location 1 (UserModel doesn't track location)
             location_id = 1
             
-            # Call renderer
-            narrative = await self.render_engine.render_world_state(
-                perceiver_id=request.user_id,
-                perceiver_type="user"
+            # Build world state for PFEE
+            world = await self.world_engine.get_or_create_world()
+            world_state = await build_world_state_for_pfee(
+                self.session, world, request.user_id
             )
             
-            logger.info(f"Rendered narrative (length={len(narrative)}): {narrative[:200]}...")
-            
-            # Ensure we have meaningful content
-            if not narrative or narrative == "The world is empty." or narrative == "You are nowhere.":
-                # Generate a default narrative
-                world = await self.world_engine.get_or_create_world()
-                visible_agents = await self.agent_repo.list_agents_in_location(location_id)
+            # Run PFEE perception cycle (no user action, just render current state)
+            logger.info(f"[PFEE] Running perception cycle for render request")
+            try:
+                perception_result = await self.pfee_orchestrator.run_perception_cycle(
+                    world_state=world_state,
+                    optional_user_action=None
+                )
                 
-                if visible_agents:
-                    agent_names = [a.name for a in visible_agents]
-                    narrative = f"You are in a quiet place. {', '.join(agent_names)} are here."
-                else:
-                    narrative = "You find yourself in a quiet place. The world around you is still."
+                narrative = perception_result.text
                 
-                logger.info(f"Generated fallback narrative: {narrative}")
+                # Fallback if no narrative
+                if not narrative or narrative in ["The world is empty.", "You are nowhere.", "You are in an unknown place."]:
+                    visible_agents = await self.agent_repo.list_agents_in_location(location_id)
+                    if visible_agents:
+                        agent_names = [a.name for a in visible_agents]
+                        narrative = f"You are in a quiet place. {', '.join(agent_names)} are here."
+                    else:
+                        narrative = "You find yourself in a quiet place. The world around you is still."
+                
+                logger.info(f"[PFEE] Render complete, narrative length: {len(narrative) if narrative else 0}")
+                
+            except Exception as e:
+                logger.error(f"[PFEE] Error in render perception cycle: {str(e)}", exc_info=True)
+                # Fallback
+                narrative = "You find yourself in a quiet place. The world around you is still."
             
             # Get world state for response
             world = await self.world_engine.get_or_create_world()
