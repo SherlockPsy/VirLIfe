@@ -1,0 +1,211 @@
+﻿,Name,Category,Relationship/Context,Project/Link,Closeness/Sentiment
+0,Tom Cruise,Co-star,Longtime collaborator on Mission: Impossible,Mission: Impossible,Close professional trust; admiration/respect
+1,Christopher McQuarrie,Director,Director and creative partner,Mission: Impossible,Strong trust; deep collaboration
+2,Denis Villeneuve,Director,Director of Dune; praised repeatedly,Dune,High admiration; intellectual respect
+3,Timothy Chalamet,Co-star,Co-star in Dune,Dune,"Warm, affectionate tone; professional"
+4,Oscar Isaac,Co-star,Co-star in Dune,Dune,"Positive, mutual respect"
+5,Zendaya,Co-star,Co-star in Dune,Dune,"Friendly, light admiration"
+6,Florence Pugh,Co-star,Co-star in Dune: Part Two,Dune,Professional respect
+7,Josh Brolin,Co-star,Co-star in Dune,Dune,Neutral-professional
+8,Javier Bardem,Co-star,Co-star in Dune,Dune,Neutral-professional
+9,Stellan Skarsg‚àö‚Ä¢rd,Co-star,Co-star in Dune,Dune,Warm Nordic bond; admiration
+10,Rebecca's Mother (Rosemary Ferguson),Family,"Mother, biographical references",Life,Central emotional bond; formative influence
+11,Rebecca's Father,Family,"Father, separated early",Life,Complex/strained; minimal contact
+12,Isac Hallberg,Family,Rebecca's son,Life,Deep love; most important relationship
+13,Stella Ferguson,Family,Rebecca's daughter,Life,Deep love; central family bond
+14,Hugh Grant,Co-star,Worked together on 'Florence Foster Jenkins',Florence Foster Jenkins,Admiration; positive professional
+15,Meryl Streep,Co-star,Worked together on 'Florence Foster Jenkins',Florence Foster Jenkins,"Respect, admiration"
+16,Emily Blunt,Co-star,Worked together on 'The Girl on the Train',The Girl on the Train,Warm professional rapport
+17,Justin Theroux,Co-star,Worked together on 'The Girl on the Train',The Girl on the Train,Neutral-professional
+18,Luke Evans,Co-star,Worked together on 'The Girl on the Train',The Girl on the Train,Friendly-professional
+19,Tate Taylor,Director,Director of 'The Girl on the Train',The Girl on the Train,Respectful; professional trust
+20,Dwayne Johnson,Co-star,Worked together on 'Hercules',Hercules,"Warm, positive admiration"
+21,Irina Shayk,Co-star,Worked together on 'Hercules',Hercules,Friendly tone
+22,John Hurt,Co-star,Worked together on 'Hercules',Hercules,"Respectful, affectionate"
+23,Francis Lawrence,Director,Director of 'Red Sparrow',Red Sparrow,Professional respect
+24,Jennifer Lawrence,Co-star,Worked together on 'Red Sparrow',Red Sparrow,Admiration; warm tone
+25,Ewan McGregor,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Mutual respect; warm working relationship
+26,Mike Flanagan,Director,Director of 'Doctor Sleep',Doctor Sleep,Admiration; deep respect
+27,Hugh Jackman,Co-star,Worked together on 'Reminiscence',Reminiscence,Positive admiration
+28,Lisa Joy,Director,Director of 'Reminiscence',Reminiscence,Respect and intellectual appreciation
+29,Patrick Fugit,Co-star,Worked together on 'Reminiscence',Reminiscence,Professional rapport
+30,Simon Pegg,Co-star,Worked together on multiple Mission: Impossible films,Mission: Impossible,"Warm, humorous bond; mutual respect"
+31,Ving Rhames,Co-star,Worked together on multiple Mission: Impossible films,Mission: Impossible,Friendly-professional
+32,Jeremy Renner,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Rogue Nation,Mission: Impossible,Positive professional rapport
+33,Henry Cavill,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Fallout,Mission: Impossible,Friendly admiration
+34,Vanessa Kirby,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Fallout,Mission: Impossible,Professional respect
+35,Hayley Atwell,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning,Mission: Impossible,Warm rapport
+36,Pom Klementieff,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning,Mission: Impossible,Professional respect
+37,Angela Bassett,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Fallout,Mission: Impossible,Positive-professional
+38,Alec Baldwin,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Rogue Nation & Fallout,Mission: Impossible,Respectful tone
+39,Sean Harris,Co-star,Worked together on Mission: Impossible ‚Äö√Ñ√¨ Rogue Nation & Fallout,Mission: Impossible,Professional rapport
+40,Vanessa Redgrave,Co-star,Mentioned in press as admired actress,Career,Warm admiration
+41,Ingrid Bergman,Inspiration,Referenced as a Swedish acting inspiration,Life/Heritage,Deep respect and inspiration
+42,Greta Garbo,Inspiration,Referenced as iconic Swedish actress,Life/Heritage,Respect; inspirational figure
+43,Ingmar Bergman,Inspiration,Referenced as Swedish cinematic icon,Life/Heritage,Respect; cultural inspiration
+44,Maria von Trapp,Role,Portrayed in 'The Sound of Music: Live',Sound of Music,Affectionate toward role
+45,Jenny Lind,Role,Portrayed in 'The Greatest Showman',The Greatest Showman,Respect and affection
+47,Zac Efron,Co-star,Worked together on 'The Greatest Showman',The Greatest Showman,Friendly-professional
+49,Michael Gracey,Director,Directed 'The Greatest Showman',The Greatest Showman,Respectful appreciation
+50,Jake Gyllenhaal,Co-star,Worked together on 'Life',Life,Warm admiration; respect
+51,Ryan Reynolds,Co-star,Worked together on 'Life',Life,"Friendly, humorous rapport"
+52,Daniel Espinosa,Director,Directed 'Life',Life,Swedish connection; respect
+53,Rupert Friend,Co-star,Worked together on 'Despite the Falling Snow',Despite the Falling Snow,Friendly-professional
+54,Charles Dance,Co-star,Worked together on 'Despite the Falling Snow',Despite the Falling Snow,Respectful
+55,Shamim Sarif,Director,Directed 'Despite the Falling Snow',Despite the Falling Snow,Warm appreciation
+56,Alicia Vikander,Peer,Fellow Swedish actress; often compared,Career,Respectful; warm peer tone
+57,Noomi Rapace,Peer,Fellow Swedish actress,Career,Respectful; professional parallel
+58,Alexander Skarsg‚àö‚Ä¢rd,Peer,Swedish actor; same circles,Career,Warm national bond
+59,Bill Skarsg‚àö‚Ä¢rd,Peer,Swedish actor; same circles,Career,Respectful tone
+60,Gustaf Skarsg‚àö‚Ä¢rd,Peer,Swedish actor; same circles,Career,Respectful tone
+61,Joel Kinnaman,Peer,Swedish actor; same circles,Career,Friendly-professional
+62,Mikael Nyqvist,Peer,Late Swedish actor; admired,Career,Respect; admiration
+63,Ingrid Rubio,Co-star,Worked together on 'The Red Tent',The Red Tent,Positive-professional
+64,Minnie Driver,Co-star,Worked together on 'The Red Tent',The Red Tent,Friendly-professional
+65,Morena Baccarin,Co-star,Worked together on 'The Red Tent',The Red Tent,Friendly-professional
+66,John Lynch,Co-star,Worked together on 'The Red Tent',The Red Tent,Respectful-professional
+67,David Kossoff,Role/Portrayal,Historical figure referenced in 'The Red Tent',The Red Tent,Neutral portrayal
+68,Sharon Small,Co-star,Worked together on TV project,Career,Professional rapport
+69,Idris Elba,Co-star,Worked together on 'The Dark Tower',The Dark Tower,Respectful-professional
+70,Matthew McConaughey,Co-star,Worked together on 'The Dark Tower',The Dark Tower,Warm respect; professional
+71,Nikolaj Arcel,Director,Directed 'The Dark Tower',The Dark Tower,Respectful-professional
+72,Stephen King,Author,Author of source material 'The Dark Tower',The Dark Tower,Admiration; inspirational
+73,Clint Eastwood,Inspiration,Cinematic influence mentioned in relation to 'The Dark Tower',Career,Admiration
+74,David Oyelowo,Co-star,Worked together on 'The Red Tent',The Red Tent,Respectful-professional
+75,Ciar‚àö¬∞n Hinds,Co-star,Worked together on 'The Snowman',The Snowman,Respectful tone
+76,Michael Fassbender,Co-star,Worked together on 'The Snowman',The Snowman,Warm admiration
+77,Tomas Alfredson,Director,Directed 'The Snowman',The Snowman,Respect; professional rapport
+78,Chlo‚àö¬¥ Sevigny,Co-star,Worked together on 'The Snowman',The Snowman,Professional rapport
+79,Val Kilmer,Co-star,Worked together on 'The Snowman',The Snowman,Professional admiration
+80,Charlotte Gainsbourg,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+81,Sverrir Gudnason,Co-star,Worked together on Swedish projects,Career,Friendly-professional
+82,Per Hallberg,Sound Designer,"Swedish sound designer, Hollywood collaborator",Career,National connection; respect
+83,Terry George,Director,Directed 'The Promise' (where she was considered/linked),The Promise,Respectful mention
+84,Christian Bale,Co-star,Connected via 'The Promise' project context,The Promise,Respectful tone
+86,Shohreh Aghdashloo,Co-star,Worked together on 'The Expanse' (voice/appearance context),The Expanse,Respectful-professional
+87,Maria Doyle Kennedy,Co-star,Worked together on TV projects,Career,Respectful-professional
+88,Shirley MacLaine,Admired Actress,Admired and referenced in interviews,Career,Warm admiration
+89,Cate Blanchett,Admired Actress,Admired and referenced in interviews,Career,Deep respect
+90,Helena Bonham Carter,Admired Actress,Admired and referenced in interviews,Career,Respectful admiration
+91,Tilda Swinton,Admired Actress,Admired and referenced in interviews,Career,Warm admiration
+92,Nicole Kidman,Admired Actress,Admired and referenced in interviews,Career,Respect; admiration
+93,Julianne Moore,Admired Actress,Admired and referenced in interviews,Career,Respect; admiration
+94,Jessica Chastain,Admired Actress,Admired and referenced in interviews,Career,Respectful tone
+95,Amy Adams,Admired Actress,Admired and referenced in interviews,Career,Respectful admiration
+96,Rachel Weisz,Admired Actress,Admired and referenced in interviews,Career,Respectful admiration
+97,Mark Strong,Co-star,Worked together on 'Despite the Falling Snow',Despite the Falling Snow,Respectful-professional
+98,Jim Broadbent,Co-star,Worked together on 'The Lady and the Panda',The Lady and the Panda,Respectful-professional
+99,Peter Dinklage,Co-star,Worked together on 'Rememory' (connected via Sundance),Rememory,Respectful admiration
+100,Anton Yelchin,Co-star,Worked together on 'Rememory',Rememory,Respectful-professional; affectionate memory
+101,Julia Ormond,Co-star,Worked together on 'Rememory',Rememory,Professional rapport
+102,Mark Palansky,Director,Directed 'Rememory',Rememory,Respectful-professional
+103,Sam Reid,Co-star,Worked together on 'Despite the Falling Snow',Despite the Falling Snow,Friendly-professional
+104,Charles Dances,Co-star,Worked together on 'Despite the Falling Snow',Despite the Falling Snow,Respectful-professional
+105,Ola Rapace,Peer,Swedish actor; peer connection,Career,Friendly-professional
+106,Peter Stormare,Peer,Swedish actor; peer connection,Career,Respectful-professional
+108,Joely Richardson,Co-star,Worked together on 'The Red Tent',The Red Tent,Respectful-professional
+109,Morven Christie,Co-star,Worked together on UK TV projects,Career,Friendly-professional
+111,Anne Hathaway,Peer,"Fellow actress, mentioned in industry context",Career,Neutral-respectful
+112,Matt Damon,Peer,Mentioned in industry context,Career,Respectful-professional
+113,Ben Affleck,Peer,Mentioned in interviews as admired actor,Career,Respectful tone
+114,Christopher Nolan,Director,"Admired director, connected via industry and cast overlap",Career,Respectful admiration
+115,Ridley Scott,Director,Admired director; influence in sci-fi genre,Career,Respectful admiration
+121,Jason Momoa,Co-star,Worked together on 'Dune',Dune,Warm professional admiration
+123,Charlotte Rampling,Co-star,Worked together on 'Dune',Dune,Respectful-professional
+124,David Dastmalchian,Co-star,Worked together on 'Dune',Dune,Friendly-professional
+125,Stephen McKinley Henderson,Co-star,Worked together on 'Dune',Dune,Respectful-professional
+126,Rebecca Hall,Peer,"Fellow British actress, mentioned in interviews",Career,Respectful admiration
+127,Emily Watson,Peer,Admired actress,Career,Warm admiration
+128,Tom Hardy,Peer,Mentioned in industry context,Career,Respectful tone
+129,Cillian Murphy,Peer,Mentioned in industry context,Career,Respectful tone
+130,Hans Zimmer,Composer,Scored 'Dune',Dune,Warm respect; admiration
+131,Greig Fraser,Cinematographer,Cinematographer on 'Dune',Dune,Respectful-professional
+132,Mary Parent,Producer,Producer of 'Dune',Dune,Respectful-professional
+133,Kevin J. Anderson,Author,"Co-author of Dune extended works, part of franchise context",Dune,Respectful tone
+134,Frank Herbert,Author,Original author of 'Dune',Dune,Admiration for material
+145,Esai Morales,Co-star,Worked together in 'Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning',Mission: Impossible,Professional tone
+146,Cary Elwes,Co-star,Worked together in 'Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning',Mission: Impossible,Friendly-professional
+147,Mark Gatiss,Co-star,Worked together in 'Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning',Mission: Impossible,Friendly-professional
+148,Rob Delaney,Co-star,Worked together in 'Mission: Impossible ‚Äö√Ñ√¨ Dead Reckoning',Mission: Impossible,Friendly-professional
+149,Indira Varma,Co-star,Worked together on UK TV projects,Career,Warm admiration
+150,Ferguson Family (parents),Family,Referenced in biographical discussions of childhood,Personal Life,Deep emotional significance
+151,Brother (unnamed),Family,Rebecca has a brother mentioned in interviews,Personal Life,Close family bond
+153,Friends from Vasastan School,Friends,Childhood friends referenced in interviews,Early Life,Fond memories
+154,Drama School Mentors,Mentor,Teachers and mentors from Swedish drama training,Education,Respectful admiration
+158,Ariyon Bakare,Co-star,Worked together on 'Life',Life,Respectful-professional
+159,Hiroyuki Sanada,Co-star,Worked together on 'Life',Life,Respectful-professional
+160,Olga Dihovichnaya,Co-star,Worked together on 'Life',Life,Respectful-professional
+162,Rebecca‚Äö√Ñ√¥s Childhood Dance Teachers,Mentor,Dance teachers from early ballet/jazz training,Education,Fond respect
+165,Simon Helberg,Co-star,Worked together on 'Florence Foster Jenkins',Florence Foster Jenkins,Friendly-professional
+166,Stephen Frears,Director,Directed 'Florence Foster Jenkins',Florence Foster Jenkins,Respectful-professional
+167,Christian McKay,Co-star,Worked together on 'Florence Foster Jenkins',Florence Foster Jenkins,Friendly-professional
+168,Nina Arianda,Co-star,Worked together on 'Florence Foster Jenkins',Florence Foster Jenkins,Friendly-professional
+169,Alessandro Nivola,Co-star,Worked together on 'The Red Tent',The Red Tent,Respectful-professional
+177,Helena Bergstr‚àö‚àÇm,Peer,"Swedish actress, admired in interviews",Career,Warm admiration
+178,Pernilla August,Peer,"Swedish actress, admired in interviews",Career,Respectful admiration
+179,Liv Ullmann,Admired Actress,Admired Scandinavian actress,Career,Warm admiration
+184,Natalie Portman,Admired Actress,Admired in interviews,Career,Warm admiration
+185,Keira Knightley,Admired Actress,Admired in interviews,Career,Respectful admiration
+186,Saoirse Ronan,Admired Actress,Admired in interviews,Career,Warm admiration
+187,Rooney Mara,Admired Actress,Admired in interviews,Career,Respectful admiration
+188,Emily Browning,Admired Actress,Admired in interviews,Career,Respectful admiration
+192,Kyliegh Curran,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Friendly-professional
+193,Cliff Curtis,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+194,Zahn McClarnon,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+195,Emily Alyn Lind,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Friendly-professional
+196,Bruce Greenwood,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+197,Carl Lumbly,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+198,Alex Essoe,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+199,Jocelin Donahue,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+200,Henry Thomas,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+201,Carel Struycken,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+202,Robert Longstreet,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+203,Katie Parker,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+204,Selena Anduze,Co-star,Worked together on 'Doctor Sleep',Doctor Sleep,Respectful-professional
+205,Metin Huseyin,Director,Directed Rebecca in 'The White Queen',The White Queen,Respectful-professional
+206,Philippa Gregory,Author,Wrote the source novel for 'The White Queen',The White Queen,Respectful admiration
+207,Max Irons,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+208,Aneurin Barnard,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+209,Janet McTeer,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+210,James Frain,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+211,David Oakes,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+212,Faye Marsay,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+213,Amanda Hale,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+214,Eleanor Tomlinson,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+215,Ben Lamb,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+216,Ruth Bradley,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+217,Caroline Goodall,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+218,Trevor Eve,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+219,Juliet Aubrey,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+220,John Bradley,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+221,Robert Pugh,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+222,Michael Maloney,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+223,Arthur Darvill,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+224,Rupert Graves,Co-star,Worked together on 'The White Queen',The White Queen,Respectful-professional
+225,Freya Mavor,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+226,Stanley Tucci,Co-star,"Worked together on 'The Lovely Bones', admired in interviews",Career,Warm admiration; respectful-professional
+228,Peter Jackson,Director,Directed 'The Lovely Bones',Career,Respectful admiration
+230,Toby Jones,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+232,J.K. Simmons,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+235,Jonas Karlsson,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+236,David Dencik,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+237,Jakob Oftebro,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+238,Adrian Dunbar,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+239,Ronan Vibert,Co-star,Worked together on 'The Snowman',The Snowman,Respectful-professional
+250,Elizabeth Debicki,Peer / Admired,Actress mentioned in relation to admired peers,Career,Respectful admiration
+251,Jessica Brown Findlay,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+259,Hugh Mitchell,Co-star,Worked together on 'The White Queen',The White Queen,Friendly-professional
+267,Lena Olin,Mentor / Admired,Swedish actress; senior figure in industry,Career,Respectful admiration
+268,Bibi Andersson,Icon,Legendary Swedish actress; admired in interviews,Career,Deep admiration
+272,Brett Ratner,Director,Directed Rebecca in 'Hercules',Hercules,Respectful-professional
+275,Morten Tyldum,Director,Directed Rebecca in 'The Girl on the Train',The Girl on the Train,Respectful-professional
+276,Florian Gallenberger,Director,Directed Rebecca in 'Colonia',Colonia,Respectful-professional
+277,Joseph Kosinski,Director,Directed Rebecca in 'Mission: Impossible ‚Äö√Ñ√¨ Fallout' (reshoots),Mission: Impossible,Respectful-professional
+278,Doug Liman,Director,Directed Rebecca in 'Live Die Repeat and Repeat' (rumored),Edge of Tomorrow sequel,Respectful-professional
+280,Steven Spielberg,Director,Mentioned in relation to admired directors,Career,Respectful admiration
+282,Lars von Trier,Director,Swedish/Danish director admired,Career,Respectful admiration
+283,Ruben ‚àö√±stlund,Director,Swedish director admired,Career,Respectful admiration
+284,Roy Andersson,Director,Swedish director admired,Career,Respectful admiration
+285,Bo Widerberg,Director,Classic Swedish director admired,Career,Deep admiration
+286,Hans Rosenfeldt,Writer/Creator,Swedish screenwriter admired,Career,Respectful admiration
+287,Michael Hirst,Writer/Creator,Created 'The White Queen',The White Queen,Respectful-professional
