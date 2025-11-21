@@ -199,36 +199,51 @@ class GatewayController:
                 )
                 logger.info(f"[PIPELINE] Rendered narrative (length={len(narrative)}): {narrative[:200]}...")
                 
+                # Generate fallback narrative if renderer returned placeholder
+                if not narrative or narrative in ["The world is empty.", "You are nowhere.", "You are in an unknown place."]:
+                    logger.info(f"[PIPELINE] Renderer returned placeholder, generating fallback narrative")
+                    visible_agents = await self.agent_repo.list_agents_in_location(location_id)
+                    
+                    if visible_agents:
+                        agent_names = [a.name for a in visible_agents]
+                        narrative = f"After your action, the scene remains quiet. {', '.join(agent_names)} are here with you."
+                    else:
+                        # Generate a response based on the user's action
+                        if request.action_type == "speak" and request.text:
+                            narrative = f"Your words echo in the quiet space: '{request.text}'. The world around you remains still, waiting."
+                        else:
+                            narrative = f"After your {request.action_type}, the world around you remains still and quiet."
+                    
+                    logger.info(f"[PIPELINE] Generated fallback narrative: {narrative}")
+                
                 # Check if we have a valid broadcast function
                 logger.info(f"[PIPELINE] WebSocket broadcast function available: {self.websocket_broadcast is not None}")
                 
                 # Broadcast renderer output over WebSocket
-                if self.websocket_broadcast:
-                    logger.info(f"[PIPELINE] Checking narrative validity: narrative exists={narrative is not None}, length={len(narrative) if narrative else 0}, is_empty_placeholder={narrative == 'The world is empty.' if narrative else False}")
-                    
-                    if narrative and narrative != "The world is empty." and narrative != "You are nowhere.":
-                        ws_message = {
-                            "type": "perception",
-                            "content": narrative,
-                            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
-                            "speaker": None,
-                            "speakerId": None,
-                            "metadata": {
-                                "location": f"location_{location_id}",
-                                "isIncursion": False
-                            }
+                if self.websocket_broadcast and narrative:
+                    ws_message = {
+                        "type": "perception",
+                        "content": narrative,
+                        "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
+                        "speaker": None,
+                        "speakerId": None,
+                        "metadata": {
+                            "location": f"location_{location_id}",
+                            "isIncursion": False
                         }
-                        # Call broadcast function (it's async)
-                        try:
-                            logger.info(f"[PIPELINE] Attempting to broadcast WebSocket message: {ws_message}")
-                            await self.websocket_broadcast(ws_message)
-                            logger.info(f"[PIPELINE] Successfully broadcast WebSocket message: {narrative[:50]}...")
-                        except Exception as e:
-                            logger.error(f"[PIPELINE] Error broadcasting WebSocket message: {str(e)}", exc_info=True)
-                    else:
-                        logger.warning(f"[PIPELINE] Skipping broadcast: narrative is empty or placeholder. narrative='{narrative}'")
+                    }
+                    # Call broadcast function (it's async)
+                    try:
+                        logger.info(f"[PIPELINE] Attempting to broadcast WebSocket message: {ws_message}")
+                        await self.websocket_broadcast(ws_message)
+                        logger.info(f"[PIPELINE] Successfully broadcast WebSocket message: {narrative[:50]}...")
+                    except Exception as e:
+                        logger.error(f"[PIPELINE] Error broadcasting WebSocket message: {str(e)}", exc_info=True)
                 else:
-                    logger.warning(f"[PIPELINE] WebSocket broadcast function is None - cannot broadcast")
+                    if not self.websocket_broadcast:
+                        logger.warning(f"[PIPELINE] WebSocket broadcast function is None - cannot broadcast")
+                    if not narrative:
+                        logger.warning(f"[PIPELINE] Narrative is empty - cannot broadcast")
             except Exception as e:
                 logger.error(f"[PIPELINE] Error rendering or broadcasting: {str(e)}", exc_info=True)
                 # Don't fail the request if rendering/broadcast fails
