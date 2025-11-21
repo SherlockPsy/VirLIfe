@@ -371,6 +371,61 @@ the builder LLM MUST refuse and reference Plan.md and Architecture.md.
   - uses LLMs only through cognition and renderer wrappers.
   - never encodes user internal psychology.
 
+---------------------------------------------------------------------
+FRONTEND SERVICE (RAILWAY)
+---------------------------------------------------------------------
+
+Name: `virlife-frontend` (exact name may vary, but MUST be a dedicated Railway service)
+
+Purpose:
+- Serve the Virtual World UI as a text-only, visually rich SPA.
+- Connect to the backend gateway/API services over HTTPS and WebSockets.
+- Provide a stable, browser-accessible entrypoint for the user.
+
+Type:
+- Railway service hosting a Node/JS-based frontend (e.g., React + Vite/Next), or a static build served via a lightweight Node/Edge runtime.
+- MUST NOT depend on local filesystem paths outside its own container.
+
+Networking:
+- Exposed via HTTPS on a public URL (e.g. `https://virlife-frontend.up.railway.app`).
+- Communicates with backend service(s) exclusively via HTTPS/WebSockets.
+- MUST NOT access databases directly; all world interaction MUST go through the backend gateway.
+
+Environment Variables (minimum):
+
+- `VIRLIFE_ENV`  
+  - e.g. `production`, `staging`
+  - Used for environment-specific behaviour (primarily logging, not logic).
+
+- `BACKEND_BASE_URL`  
+  - The public URL for the backend gateway/API service.
+  - All HTTP calls from the frontend MUST use this base URL.
+
+- `BACKEND_WS_URL`  
+  - WebSocket endpoint for live timeline/events (e.g. `wss://virlife-backend.up.railway.app/ws`).
+
+- `TTS_ENABLED`  
+  - `true` or `false`, to toggle TTS integration at runtime.
+
+- `TTS_BASE_URL` (OPTIONAL)  
+  - If TTS is provided by a separate service, its base URL.
+
+- `APP_VERSION`  
+  - String version identifier for debugging and support (not logic).
+
+Persistence:
+- The frontend service MUST NOT maintain authoritative state.
+- All authoritative state (world, agents, psychology, memories) lives in the backend’s Postgres.
+- The frontend MAY cache ephemeral UI state in memory but MUST tolerate restarts.
+
+Constraints:
+- No direct database connections.
+- No direct Redis/Qdrant connections.
+- No background jobs.
+- All state changes MUST go through backend APIs in line with MASTER_SPEC and Architecture.
+
+
+
 This architecture ensures:
 
 - determinism in the numeric substrate  

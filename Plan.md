@@ -521,17 +521,412 @@ Add tests:
 - deterministic retrieval ordering given fixed embeddings.  
 - failover behaviour if Qdrant is unavailable.  
 
-======================================================================
-# PHASE 10 — UI PHASE (LOCKED UNTIL BACKEND IS COMPLETE)
-======================================================================
+=====================================================================
+PHASE 10 — UI CLIENT (TEXT-ONLY, VISUALLY RICH, WORLD-FAITHFUL)
+=====================================================================
 
-**Goal:** Build UI **only after** backend is stable, deployed, and optimised.
+STATUS: NOT STARTED
 
-### Tasks:
+This phase defines the complete implementation plan for the UI client, based on:
 
-10.1 Create separate UI spec.  
-10.2 NEVER modify backend to fit UI preferences.  
-10.3 UI consumes Gateway API only.  
+- MASTER_SPEC.md
+- Architecture.md
+- UI_SPEC.md (Virtual World UI Specification)
+- Plan.md (this file)
+- docs/BUILDER_CONTRACT.md
+- docs/ROUTER_PROMPT.txt
+- docs/ROUTER_PROMPT_UI.txt (UI router, optional but recommended)
+- docs/test_suite_outline.md
+
+The UI MUST:
+- be text-only but visually rich,
+- be emotionally neutral,
+- treat intimacy as normal reality (no modes),
+- never simulate the user’s internal state,
+- never expose numeric psychology,
+- respect backend determinism and constraints.
+
+The UI MUST be built in SEQUENTIAL SUBPHASES.
+The Builder LLM MUST NOT skip, merge, or reorder steps.
+
+---------------------------------------------------------------------
+10.0 PRECONDITIONS (MUST BE TRUE BEFORE STARTING)
+---------------------------------------------------------------------
+
+The Builder LLM MUST verify that:
+
+1. Phases 0–9 are COMPLETE and tests are passing.
+2. The backend exposes stable HTTP and WebSocket endpoints for:
+   - world/session snapshot,
+   - timeline events,
+   - user actions,
+   - phone/notifications,
+   - TTS control (if applicable),
+   - any existing endpoints required by UI_SPEC.md.
+3. UI_SPEC.md exists at the repository root (or /docs/) and is the latest version.
+4. There is a clear environment configuration for FRONTEND_BASE_URL, BACKEND_BASE_URL, and any TTS / WebSocket URLs.
+5. No backend changes are required except:
+   - adding non-breaking UI-related endpoints already anticipated by MASTER_SPEC / Architecture.
+
+If preconditions are not met, Builder MUST stop and report, NOT proceed.
+
+---------------------------------------------------------------------
+10.1 CHOOSE AND INITIALISE UI FRAMEWORK
+---------------------------------------------------------------------
+
+Goal: Create the UI project skeleton.
+
+Requirements:
+
+1. Use a modern SPA framework (e.g. React with Vite, Next.js in SPA mode, or equivalent) that:
+   - supports WebSockets,
+   - supports modular components,
+   - can be deployed on Railway or compatible platform.
+
+2. Create a `frontend/` directory (or similar, defined in Architecture.md) containing:
+   - main entry point (e.g. `src/main.tsx` or `src/index.tsx`),
+   - component directories (`src/components`, `src/views`),
+   - state management (`src/state`),
+   - API client module (`src/api`).
+
+3. Integrate a minimal design system:
+   - a base typography scale,
+   - colour tokens (neutral, non-emotional),
+   - spacing tokens,
+   - layout primitives (container, column, row),
+   - no image-based assets.
+
+4. Add basic routing if needed (single route is acceptable to start; most UI lives in one screen).
+
+5. Add initial tests:
+   - basic render test for root app component,
+   - CI command (e.g. `npm test` or `pnpm test`) wired into existing CI.
+
+Builder MUST map this subphase to UI_SPEC.md sections 0–4 (global philosophy, timeline, design).
+
+---------------------------------------------------------------------
+10.2 IMPLEMENT TIMELINE VIEW (READ-ONLY, WIRED TO MOCK DATA)
+---------------------------------------------------------------------
+
+Goal: Implement the Timeline UI components based on UI_SPEC.md, initially with mock data.
+
+Requirements:
+
+1. Create a `TimelineView` component that:
+   - renders a vertical list of MessageCards,
+   - supports scrollback,
+   - supports anchoring at the bottom when at the end,
+   - pauses auto-scroll when user scrolls up.
+
+2. Implement `MessageCard` component types:
+   - PerceptionBlock,
+   - CharacterDialogue,
+   - UserDialogue,
+   - SystemLine (incursions, notifications),
+   - PhoneEchoLine.
+
+3. Implement speaker labels and message types:
+   - clear, consistent speaker label for characters,
+   - second-person perception blocks with distinct styling,
+   - user messages visually distinct (e.g. alignment/frame),
+   - system lines minimal and unobtrusive.
+
+4. Implement visual hierarchy:
+   - typography hierarchy per UI_SPEC.md,
+   - spacing rules,
+   - neutral colour tokens,
+   - no images or avatars.
+
+5. Use mock data (static JSON or fixtures) to verify:
+   - multi-character scenes,
+   - interleaved perception and dialogue,
+   - long sequences.
+
+6. Add unit tests:
+   - speaker attribution correctness,
+   - type-based styling (perception vs dialogue vs system),
+   - scroll behaviour (auto-scroll only when at bottom).
+
+Builder MUST comply with UI_SPEC.md sections 5, 6, 11 and 14 for this subphase.
+
+---------------------------------------------------------------------
+10.3 CONNECT TIMELINE TO BACKEND (HTTP + WEBSOCKET)
+---------------------------------------------------------------------
+
+Goal: Replace mock data with real backend data.
+
+Requirements:
+
+1. Implement an `ApiClient` module that:
+   - fetches initial snapshot and recent timeline (HTTP),
+   - opens a WebSocket connection for live events.
+
+2. Define TypeScript/JS interfaces that match backend payloads:
+   - timeline event structure,
+   - perception vs dialogue vs system fields,
+   - speaker identity,
+   - timestamps.
+
+3. Implement state management:
+   - store timeline in a central store (e.g. React context, Zustand, Redux),
+   - append incoming events,
+   - paginate older messages on demand.
+
+4. Implement reconnection logic:
+   - on WebSocket disconnect, show neutral “Reconnecting…” banner,
+   - on reconnect, fetch missed events and merge deterministically.
+
+5. Tests:
+   - mocked HTTP + WebSocket tests,
+   - deterministic ordering of events,
+   - reconnection and catching up.
+
+Builder MUST NOT:
+   - expose numeric psychology,
+   - simulate user internal state,
+   - modify text from backend.
+
+---------------------------------------------------------------------
+10.4 IMPLEMENT INPUT BAR AND USER ACTIONS
+---------------------------------------------------------------------
+
+Goal: Allow the user to speak/act into the world.
+
+Requirements:
+
+1. Implement an `InputBar` component:
+   - text entry,
+   - send button,
+   - optional keyboard shortcuts (Enter to send).
+
+2. Wire it to backend:
+   - POST/WS message for user utterances or actions,
+   - immediate optimistic echo *or* conservative echo after backend confirmation (Architecturally defined; choose and document).
+
+3. Visual representation:
+   - user’s own messages rendered via UserDialogue MessageCard,
+   - NO rewriting of text.
+
+4. Tests:
+   - user input sends the correct payload,
+   - messages appear in timeline,
+   - failure handling (e.g. transient error message, retry option).
+
+Builder MUST ensure all user actions align with MASTER_SPEC user non-simulation rule and UI_SPEC.
+
+---------------------------------------------------------------------
+10.5 IMPLEMENT PHONE OVERLAY AND APPS (PHASE 1)
+---------------------------------------------------------------------
+
+Goal: Implement the phone overlay and core apps in a minimal but correct form.
+
+Requirements:
+
+1. Implement Phone overlay:
+   - open/close transitions,
+   - dimmed background,
+   - panel layout.
+
+2. Implement core apps in text-only form:
+   - Messages (threads of in-world SMS/IM),
+   - Calendar (events list and details),
+   - Notifications (basic list).
+
+3. Wire to backend:
+   - endpoints for retrieving phone data (messages, calendar, notifications),
+   - endpoints for creating user-driven events where permitted (e.g. user adds calendar entry).
+
+4. Ensure world continuity:
+   - world events continue in the background,
+   - urgent events produce inline alert inside phone overlay.
+
+5. Tests:
+   - opening/closing phone does not stop timeline,
+   - notifications appear correctly,
+   - phone UI behaves as defined in UI_SPEC.
+
+Later expansions (Email, Social, Banking, etc.) MAY be deferred to Phase 10.x, but the scaffolding MUST follow UI_SPEC.
+
+---------------------------------------------------------------------
+10.6 IMPLEMENT TTS INTEGRATION
+---------------------------------------------------------------------
+
+Goal: Implement optional text-to-speech according to UI_SPEC.
+
+Requirements:
+
+1. Integrate a TTS layer:
+   - may use browser API or configured backend TTS service,
+   - MUST be optional.
+
+2. Implement TTS queue:
+   - perception and dialogue enqueued,
+   - user messages and phone messages optional based on settings.
+
+3. Implement interruption rules:
+   - high-priority events interrupt,
+   - normal-priority content queues.
+
+4. Implement user controls:
+   - mute/unmute,
+   - replay last line,
+   - clear queue,
+   - speed control,
+   - toggles per UI_SPEC.
+
+5. Tests:
+   - queue ordering,
+   - interruption behaviour,
+   - control behaviour,
+   - no summarisation or rephrasing.
+
+---------------------------------------------------------------------
+10.7 HANDLE CONCURRENCY, SCENE FLOW, AND INTERACTION DENSITY
+---------------------------------------------------------------------
+
+Goal: Make the UI robust under high-density and multi-character scenes.
+
+Requirements:
+
+1. Implement internal Scene Flow tracking:
+   - based on backend location, time, and context signals,
+   - used only for auto-scroll and grouping, never labelled visibly.
+
+2. Implement Interaction Density tracking:
+   - message rate,
+   - number of participants,
+   - used to adjust UI pacing (auto-scroll, minor layout decisions).
+
+3. Improve timeline behaviour under high density:
+   - ensure clarity of who speaks,
+   - ensure perception vs dialogue separation,
+   - ensure auto-scroll feels stable.
+
+4. Tests:
+   - concurrency scenarios (multiple characters talking),
+   - long (100–300 message) sequences,
+   - combination with phone overlay and TTS.
+
+---------------------------------------------------------------------
+10.8 ACCESSIBILITY & LONG-SESSION OPTIMISATION
+---------------------------------------------------------------------
+
+Goal: Make the UI safe and pleasant for long, frequent use.
+
+Requirements:
+
+1. Implement accessibility features:
+   - font scaling,
+   - contrast options,
+   - keyboard navigation,
+   - screen reader labels.
+
+2. Respect system “reduce motion” settings:
+   - disable micro-animations when requested.
+
+3. Long-session usability:
+   - ensure CPU/GPU use stays moderate over many hours,
+   - handle large timelines without performance degradation,
+   - manage pagination and memory.
+
+4. Tests:
+   - accessibility checks (linting, snapshots),
+   - performance tests for large timelines.
+
+---------------------------------------------------------------------
+10.9 RAILWAY DEPLOYMENT FOR FRONTEND + FINAL UI POLISH
+---------------------------------------------------------------------
+
+Goal: Make the UI production-ready AND deploy it as a dedicated Railway service.
+
+Requirements:
+
+1. CREATE FRONTEND RAILWAY SERVICE
+
+   - Create a Railway service (e.g. `virlife-frontend`) dedicated to the UI.
+   - Configure build and start commands (e.g. `npm install && npm run build`, `npm run preview` or equivalent) according to the chosen framework.
+   - Ensure the service runs as a pure frontend service:
+     - no direct DB access,
+     - no direct Redis/Qdrant access,
+     - all calls go via `BACKEND_BASE_URL` and `BACKEND_WS_URL`.
+
+2. ENVIRONMENT VARIABLES
+
+   The frontend Railway service MUST define at least:
+
+   - `VIRLIFE_ENV` → `production`
+   - `BACKEND_BASE_URL` → public HTTP(S) URL of the backend gateway.
+   - `BACKEND_WS_URL` → public WebSocket URL of the backend timeline/events.
+   - `TTS_ENABLED` → `true` or `false` depending on whether TTS is wired.
+   - `TTS_BASE_URL` → if a separate TTS service exists.
+   - `APP_VERSION` → current frontend version string.
+
+   The Builder MUST document these in `FRONTEND_README.md`.
+
+3. BUILD AND DEPLOY PIPELINE
+
+   - Add a `frontend` build script (e.g. `npm run build`) that produces a production bundle.
+   - Wire CI to:
+     - run frontend unit tests,
+     - run frontend integration tests (at least smoke tests),
+     - build the frontend artifact.
+   - Ensure Railway uses the correct Node version and build commands.
+   - Ensure static assets are served correctly by the chosen framework.
+
+4. E2E VALIDATION FLOWS (AGAINST RAILWAY DEPLOYMENT)
+
+   The Builder MUST validate, against the live Railway deployment, at least:
+
+   - Quiet day scenario:
+     - User connects to frontend URL.
+     - World snapshot loads.
+     - Timeline renders.
+     - User can send a message.
+     - Responses appear in real time.
+
+   - High-stakes emotional scenario:
+     - Backend runs a pre-defined test script or scenario.
+     - Frontend shows multi-character dialogue clearly.
+     - Interruptions and incursion markers appear correctly.
+     - No emotional distortion is introduced by UI.
+
+   - Long intimate interaction (100+ messages):
+     - User stays in a long, interactive, intimate scene.
+     - Timeline remains readable.
+     - Speaker labels stay clear.
+     - No special UI mode is applied.
+     - Auto-scroll behaves correctly.
+
+   - Mixed phone and world interaction:
+     - Phone overlay opens/closes.
+     - Notifications appear inline on timeline.
+     - World continues while phone is open.
+     - Urgent events appear inside phone and timeline.
+
+5. DOCUMENTATION
+
+   - Create `FRONTEND_README.md` that explains:
+     - how to run the UI locally,
+     - how to deploy to Railway,
+     - required environment variables and their meaning,
+     - how the UI obeys UI_SPEC.md and MASTER_SPEC.md.
+
+   - Update `Architecture.md` to confirm the frontend Railway service exists and is correctly integrated.
+
+6. NON-NEGOTIABLE CONSTRAINTS
+
+   - Frontend MUST NOT access Postgres, Redis, or Qdrant directly.
+   - Frontend MUST NOT violate UI_SPEC.md’s neutrality, text-only, and non-mode rules.
+   - Frontend MUST NOT change backend logic.
+   - Any required backend endpoint adjustments MUST remain non-breaking and conform to Architecture and MASTER_SPEC.
+
+When this subphase is complete, and:
+
+- all frontend tests pass,
+- deployment to Railway is stable,
+- the UI behaves as defined in UI_SPEC.md,
+
+…then Phase 10 MAY be marked COMPLETE.
 
 ======================================================================
 # END OF PLAN.md
