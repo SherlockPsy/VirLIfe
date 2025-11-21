@@ -16,9 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
 
-from backend.persistence.models import Base
-from sqlalchemy import Column, Integer, String, JSON, DateTime, ForeignKey
-from sqlalchemy.sql import func
+from backend.persistence.models import PotentialModel
 
 
 class PotentialType(str, Enum):
@@ -41,19 +39,6 @@ class ContextType(str, Enum):
     STREET = "street"
     CAFE = "cafe"
     GENERAL = "general"
-
-
-class PotentialModel(Base):
-    """Database model for latent potentials."""
-    __tablename__ = "pfee_potentials"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    context_type = Column(String, nullable=False)  # ContextType
-    potential_type = Column(String, nullable=False)  # PotentialType
-    parameters = Column(JSON, default={}, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    resolved_at = Column(DateTime(timezone=True), nullable=True)
-    is_resolved = Column(Integer, default=0, nullable=False)  # 0 = unresolved, 1 = resolved
 
 
 @dataclass
@@ -93,7 +78,7 @@ class PotentialResolver:
             context_type=context_type_str,
             potential_type=potential_type.value,
             parameters=parameters,
-            is_resolved=0
+            is_resolved=False
         )
         self.session.add(potential)
         await self.session.flush()
@@ -115,7 +100,7 @@ class PotentialResolver:
         # Load unresolved potentials matching context
         stmt = select(PotentialModel).where(
             PotentialModel.context_type == context_type,
-            PotentialModel.is_resolved == 0
+            PotentialModel.is_resolved == False
         )
         result = await self.session.execute(stmt)
         potentials = result.scalars().all()
@@ -211,7 +196,7 @@ class PotentialResolver:
             }
         
         # Mark potential as resolved
-        potential.is_resolved = 1
+        potential.is_resolved = True
         potential.resolved_at = datetime.utcnow()
         await self.session.flush()
         

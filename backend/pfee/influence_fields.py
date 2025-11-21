@@ -12,25 +12,10 @@ Manages cross-time influence fields for persistent agents and systems.
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Column, Integer, String, JSON, DateTime, ForeignKey
-from sqlalchemy.sql import func
+from sqlalchemy import select
 from datetime import datetime
 
-from backend.persistence.models import Base
-from backend.persistence.models import AgentModel
-
-
-class InfluenceFieldModel(Base):
-    """Database model for agent influence fields."""
-    __tablename__ = "pfee_influence_fields"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, unique=True)
-    mood_offset = Column(JSON, default={}, nullable=False)  # {valence_delta, arousal_delta}
-    drive_pressures = Column(JSON, default={}, nullable=False)  # {drive_name: pressure_delta}
-    pending_contact_probability = Column(JSON, default={}, nullable=False)  # {contact_type: probability}
-    unresolved_tension_topics = Column(JSON, default=[], nullable=False)  # List of topic strings
-    last_updated_timestamp = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+from backend.persistence.models import InfluenceFieldModel
 
 
 @dataclass

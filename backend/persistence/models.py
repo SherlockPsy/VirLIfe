@@ -234,13 +234,13 @@ class InfluenceFieldModel(Base):
     __tablename__ = "pfee_influence_fields"
 
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
-    
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, unique=True)
+
     mood_offset = Column(JSON, default={}, nullable=False)
     drive_pressures = Column(JSON, default={}, nullable=False)
-    pending_contact_probability = Column(Float, default=0.0, nullable=False)
+    pending_contact_probability = Column(JSON, default={}, nullable=False)
     unresolved_tension_topics = Column(JSON, default=[], nullable=False)
-    
+
     last_updated_timestamp = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -252,17 +252,14 @@ class InfoEventModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String, nullable=False)
     sender_id = Column(Integer, nullable=True)
-    sender_type = Column(String, nullable=True)
+    sender_type = Column(String, nullable=False)
     recipient_id = Column(Integer, nullable=True)
     recipient_type = Column(String, nullable=True)
-    
-    content = Column(Text, nullable=True)
-    metadata_payload = Column("metadata", JSON, default={}, nullable=False)
-    
-    scheduled_time = Column(DateTime(timezone=True), nullable=False)
-    delivered = Column(Boolean, default=False, nullable=False)
-    delivered_at = Column(DateTime(timezone=True), nullable=True)
-    
+
+    content = Column(JSON, default={}, nullable=False)
+    due_time = Column(DateTime(timezone=True), nullable=True)
+    processed = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -271,12 +268,9 @@ class PFEELogModel(Base):
     __tablename__ = "pfee_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    log_level = Column(String, nullable=False)
     cycle_id = Column(String, nullable=True)
-    
+    log_type = Column(String, nullable=False)
     component = Column(String, nullable=False)
-    event_type = Column(String, nullable=True)
-    message = Column(Text, nullable=False)
+    message = Column(Text, nullable=True)
     log_metadata = Column("metadata", JSON, default={}, nullable=False)
-    
     created_at = Column(DateTime(timezone=True), server_default=func.now())

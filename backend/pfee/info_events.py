@@ -13,11 +13,10 @@ from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from enum import Enum
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Column, Integer, String, JSON, DateTime, ForeignKey
-from sqlalchemy.sql import func
+from sqlalchemy import select
 from datetime import datetime
 
-from backend.persistence.models import Base
+from backend.persistence.models import InfoEventModel
 from backend.pfee.entities import EntityPersistenceManager, EntityType, PersistenceLevel
 
 
@@ -31,19 +30,6 @@ class InfoEventType(str, Enum):
     SOCIAL_CONTENT = "social_content"
 
 
-class InfoEventModel(Base):
-    """Database model for information events."""
-    __tablename__ = "pfee_info_events"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, nullable=False)  # InfoEventType
-    content = Column(JSON, default={}, nullable=False)
-    sender_id = Column(Integer, nullable=True)  # Can be agent_id or external
-    sender_type = Column(String, nullable=False)  # "agent", "external", "system"
-    recipient_id = Column(Integer, nullable=True)  # Usually user_id
-    due_time = Column(DateTime(timezone=True), nullable=True)
-    processed = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 @dataclass

@@ -10,25 +10,8 @@ Internal logging and traceability for PFEE.
 
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Column, Integer, String, JSON, DateTime, Text
-from sqlalchemy.sql import func
-from datetime import datetime
-import json
 
-from backend.persistence.models import Base
-
-
-class PFEELogModel(Base):
-    """Database model for PFEE logs."""
-    __tablename__ = "pfee_logs"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    cycle_id = Column(String, nullable=True)  # UUID for perception cycle
-    log_type = Column(String, nullable=False)  # "trigger", "potential", "entity", "llm_call", "error", "cycle"
-    component = Column(String, nullable=False)  # Component name
-    message = Column(Text, nullable=True)
-    metadata = Column(JSON, default={}, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+from backend.persistence.models import PFEELogModel
 
 
 class PFEELogger:

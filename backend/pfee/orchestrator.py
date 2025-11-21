@@ -29,7 +29,12 @@ from backend.cognition.service import CognitionService, SemanticCognitionInput
 from backend.mapping.semantic_mappers import PersonalityMapper
 from backend.cognition.salience import SalienceCalculator
 from backend.cognition.meaningfulness import MeaningfulnessCalculator
-from backend.cognition.eligibility import CognitionEligibilityChecker
+from backend.cognition.eligibility import (
+    CognitionEligibilityChecker,
+    EventTrivialityClassification,
+    BehavioralChoice,
+    BehavioralChoiceType,
+)
 from backend.renderer.service import RenderEngine
 from backend.persistence.repo import WorldRepo, AgentRepo
 from backend.persistence.models import AgentModel, ArcModel, IntentionModel, MemoryModel
@@ -65,7 +70,13 @@ class PerceptionOrchestrator:
     Implements PFEE_LOGIC.md §5 perception cycle logic.
     """
     
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        cognition_service: Optional[CognitionService] = None,
+        render_engine: Optional[RenderEngine] = None
+    ):
         self.session = session
         self.trigger_evaluator = TriggerEvaluator(session)
         self.entity_manager = EntityPersistenceManager(session)
@@ -76,8 +87,8 @@ class PerceptionOrchestrator:
         self.info_event_manager = InformationEventManager(session)
         self.logger = PFEELogger(session)
         
-        self.cognition_service = CognitionService()
-        self.render_engine = RenderEngine(session)
+        self.cognition_service = cognition_service or CognitionService()
+        self.render_engine = render_engine or RenderEngine(session)
         
         self.world_repo = WorldRepo(session)
         self.agent_repo = AgentRepo(session)
@@ -105,6 +116,12 @@ class PerceptionOrchestrator:
             import uuid
             cycle_id = str(uuid.uuid4())
             self.logger.start_perception_cycle(cycle_id)
+
+            # Handle explicit time instructions before evaluating triggers
+            if optional_user_action:
+                world_state = await self.time_manager.handle_user_time_instruction(
+                    optional_user_action, world_state
+                )
             
             # 1. Evaluate triggers
             decisions = []
@@ -307,6 +324,10 @@ class PerceptionOrchestrator:
                 cognition_output,
                 renderer_output
             )
+
+            # Mark information events as processed once handled
+            for info_event in info_events:
+                await self.info_event_manager.mark_event_processed(info_event.id)
             
             await self.session.flush()
             
@@ -444,9 +465,10 @@ class PerceptionOrchestrator:
                 "volatility": rel.volatility
             }
         
-        drives_dict = {
+        original_drives = agent.drives or {}
+        drive_levels = {
             k: (v.get("level", 0.0) if isinstance(v, dict) else v)
-            for k, v in (agent.drives or {}).items()
+            for k, v in original_drives.items()
         }
         
         # Build event participants
@@ -469,7 +491,7 @@ class PerceptionOrchestrator:
             people=event_participants,
             topics=context.get("topics", []),
             objects={},
-            drive_levels=drives_dict,
+            drive_levels=drive_levels,
             arcs=arcs,
             agent_relationships=relationships,
             agent_intentions=intentions
@@ -477,19 +499,30 @@ class PerceptionOrchestrator:
         
         m_score = MeaningfulnessCalculator.compute_m_score(
             salience_context=salience_context,
-            drive_levels=drives_dict,
+            drive_levels=drive_levels,
             arcs=arcs,
             relationships=relationships,
             energy=agent.energy or 1.0
         )
         
         # Check eligibility
-        from backend.cognition.eligibility import EventTrivialityClassification, BehavioralChoice
-        event_triviality = EventTrivialityClassification.NON_TRIVIAL
+        event_triviality = EventTrivialityClassification.SIGNIFICANT
         behavioral_choices = [
-            BehavioralChoice.SPEAK_OR_SILENCE,
-            BehavioralChoice.APPROACH_OR_WITHDRAW,
-            BehavioralChoice.ESCALATE_OR_DE_ESCALATE
+            BehavioralChoice(
+                choice_type=BehavioralChoiceType.RESPONSE_TO_DIRECT_ADDRESS,
+                description="Decide whether to respond verbally or remain silent.",
+                stakes=0.5,
+            ),
+            BehavioralChoice(
+                choice_type=BehavioralChoiceType.WITHDRAWAL_VS_ENGAGEMENT,
+                description="Choose to lean in or withdraw from the interaction.",
+                stakes=0.4,
+            ),
+            BehavioralChoice(
+                choice_type=BehavioralChoiceType.ESCALATION_VS_DEESCALATION,
+                description="Consider escalating or de-escalating the emotional tone.",
+                stakes=0.35,
+            ),
         ]
         
         eligibility_result = CognitionEligibilityChecker.check_eligibility(
@@ -504,7 +537,8 @@ class PerceptionOrchestrator:
         
         # Store numeric values in context for later use (NOT passed to LLM)
         context["_eligibility_numeric_state"] = {
-            "drives": drives_dict,
+            "drives": original_drives,
+            "drive_levels": drive_levels,
             "arcs": arcs,
             "relationships": relationships,
             "energy": agent.energy or 1.0,
@@ -595,7 +629,8 @@ class PerceptionOrchestrator:
         
         # Convert ALL numeric state to semantic summaries
         mood_dict = numeric_state.get("mood", {"valence": 0.0, "arousal": 0.0})
-        drives_dict = numeric_state.get("drives", {})
+        drive_profiles = numeric_state.get("drives", {})
+        drive_levels = numeric_state.get("drive_levels", {})
         relationships = numeric_state.get("relationships", {})
         arcs = numeric_state.get("arcs", {})
         energy = numeric_state.get("energy", 1.0)
@@ -604,14 +639,16 @@ class PerceptionOrchestrator:
         
         # Create semantic summaries (NO numeric values)
         semantic_mood = PFEESemanticMapper.map_mood_to_semantic(mood_dict)
-        semantic_drives = PFEESemanticMapper.map_drives_to_semantic(drives_dict)
+        semantic_drives = PFEESemanticMapper.map_drives_to_semantic(drive_profiles)
         semantic_relationships = PFEESemanticMapper.map_relationships_to_semantic(relationships)
         semantic_arcs = PFEESemanticMapper.map_arcs_to_semantic(arcs)
         semantic_energy = PFEESemanticMapper.map_energy_to_semantic(energy)
         semantic_intentions = PFEESemanticMapper.map_intentions_to_semantic(intentions)
         
         # Compute personality activation deterministically (for semantic mapping)
-        activation_stress = sum(drives_dict.values()) / max(len(drives_dict), 1) if drives_dict else 0.0
+        activation_stress = (
+            sum(drive_levels.values()) / max(len(drive_levels), 1) if drive_levels else 0.0
+        )
         personality_activation = {
             "stress_modulation": activation_stress,
             "arousal_modulation": mood_dict.get("arousal", 0.0),
@@ -623,18 +660,15 @@ class PerceptionOrchestrator:
             personality_kernel,
             personality_activation,
             mood_dict,
-            drives_dict,
+            drive_profiles,
             energy,
             arcs,
             relationships
         )
-        
-        from backend.cognition.eligibility import EventTrivialityClassification, BehavioralChoice
-        from backend.mapping.semantic_mappers import PersonalityMapper
-        
+
         personality_kernel = numeric_state.get("personality_kernel", {})
-        personality_stable = PersonalityMapper.map_stable_summary(personality_kernel)
-        personality_domain = PersonalityMapper.map_domain_summaries(personality_kernel)
+        personality_stable = PersonalityMapper.kernel_to_stable_summary(personality_kernel)
+        personality_domain = PersonalityMapper.kernel_to_domain_summaries(personality_kernel)
         semantic_personality = {
             "stable_summary": personality_stable,
             "domain_summaries": personality_domain
@@ -673,11 +707,23 @@ class PerceptionOrchestrator:
             memories={"episodic": episodic, "biographical": biographical},
             event_participants=event_participants,
             event_topics=context.get("topics", []),
-            event_triviality=EventTrivialityClassification.NON_TRIVIAL,
+            event_triviality=EventTrivialityClassification.SIGNIFICANT,
             behavioral_choices=[
-                BehavioralChoice.SPEAK_OR_SILENCE,
-                BehavioralChoice.APPROACH_OR_WITHDRAW,
-                BehavioralChoice.ESCALATE_OR_DE_ESCALATE
+                BehavioralChoice(
+                    choice_type=BehavioralChoiceType.RESPONSE_TO_DIRECT_ADDRESS,
+                    description="Respond verbally or remain silent.",
+                    stakes=0.5,
+                ),
+                BehavioralChoice(
+                    choice_type=BehavioralChoiceType.WITHDRAWAL_VS_ENGAGEMENT,
+                    description="Approach or withdraw physically.",
+                    stakes=0.4,
+                ),
+                BehavioralChoice(
+                    choice_type=BehavioralChoiceType.ESCALATION_VS_DEESCALATION,
+                    description="Escalate or soften the exchange.",
+                    stakes=0.35,
+                ),
             ],
             relevant_calendar_context=context.get("calendar_context"),
             relevant_unexpected_event_context=context.get("unexpected_event_context"),
