@@ -132,7 +132,7 @@ The endpoint checks:
 
 Railway Postgres is the authoritative and only supported database.
 
-**Important:** This application does NOT support SQLite or local file-based databases. All development and production environments must use PostgreSQL (via Railway or a compatible Postgres service).
+**Important:** VirLife runs only on Railway-managed Postgres/Redis/Qdrant. No local DB is supported. This application does NOT support SQLite or local file-based databases. All development and production environments must use PostgreSQL via Railway-managed services.
 
 For fresh deployments:
 1. Railway creates a new Postgres database automatically

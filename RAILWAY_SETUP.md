@@ -68,7 +68,7 @@ These variables must be configured in the `virlife-backend` service.
 | :--- | :--- | :--- |
 | `DATABASE_URL` | `postgresql+asyncpg://...` (Link to `virlife-db`) | **YES** |
 
-**Note:** PostgreSQL is the ONLY supported database. SQLite is not supported. Railway automatically provides `DATABASE_URL` when you link a Postgres service.
+**Note:** VirLife only supports Railway-managed Postgres/Redis/Qdrant. No local DB is supported. PostgreSQL is the ONLY supported database. SQLite is not supported. Railway automatically provides `DATABASE_URL` when you link a Postgres service.
 
 ### 3.3 Optimization (Redis)
 | Variable | Value / Description | Required |

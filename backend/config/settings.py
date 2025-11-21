@@ -17,19 +17,16 @@ class Settings(BaseSettings):
     @field_validator('database_url', mode='before')
     @classmethod
     def validate_database_url(cls, v):
-        # DATABASE_URL is always required - no SQLite fallback
+        # VirLife only supports Railway Postgres. DATABASE_URL is required.
         if not v:
             raise ValueError(
-                "DATABASE_URL environment variable is required and must not be empty. "
-                "Expected format: postgresql://user:password@host:port/database "
-                "(Railway provides this automatically when Postgres service is linked)"
+                "VirLife only supports Railway Postgres. DATABASE_URL is required."
             )
         
         # Ensure we're using Postgres, not SQLite
         if v.startswith("sqlite"):
             raise ValueError(
-                "SQLite is not supported. This application requires PostgreSQL. "
-                "Configure DATABASE_URL to point to a Railway Postgres service."
+                "VirLife only supports Railway Postgres. DATABASE_URL is required."
             )
         
         return v

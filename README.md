@@ -234,13 +234,14 @@ Optional (Phase 9+):
 
 ### 9.3 Local Development
 
-**Local development must connect to Railway services.**
+**VirLife runs only on Railway-managed Postgres/Redis/Qdrant. No local DB is supported.**
 
-This application does NOT support local SQLite or local-only databases.
-To develop locally:
+Local development must connect to Railway services:
 1. Link to Railway project: `railway link`
 2. Use Railway environment variables: `railway run <command>`
 3. Or export Railway's `DATABASE_URL` to your local environment
+
+**No local SQLite, local Postgres, local Redis, or local Qdrant is supported.**
 
 See `RAILWAY_SETUP.md` for complete deployment instructions.
 
