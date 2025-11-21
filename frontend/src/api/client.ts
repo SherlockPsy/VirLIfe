@@ -44,16 +44,28 @@ export class ApiClient {
     const response = await fetch(`${this.baseUrl}/api/v1/render?user_id=${userId}&pov=second_person`)
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch world snapshot: ${response.statusText}`)
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch world snapshot: ${response.status} ${errorText}`)
     }
     
-    const data: RenderResponse = await response.json()
+    const backendData = await response.json()
+    
+    // Convert backend RenderResponse to frontend format
+    // Backend returns: { narrative, visible_agents, visible_objects, current_location_id, world_tick }
+    const data: RenderResponse = {
+      content: backendData.narrative || 'No narrative available',
+      timestamp: Date.now(),
+      type: 'perception',
+      metadata: {
+        location: `location_${backendData.current_location_id}`,
+      },
+    }
     
     // For now, return a snapshot with a single message
     // TODO: Backend should provide full snapshot endpoint
     return {
       userId,
-      currentLocation: data.metadata?.location || 'unknown',
+      currentLocation: `location_${backendData.current_location_id || 'unknown'}`,
       recentMessages: [data],
       timestamp: Date.now(),
     }
@@ -63,19 +75,35 @@ export class ApiClient {
    * Send user action
    */
   async sendUserAction(request: UserActionRequest): Promise<UserActionResponse> {
+    // Convert frontend camelCase to backend snake_case
+    const backendRequest = {
+      user_id: request.userId,
+      action_type: request.action,
+      text: request.utterance || null,
+      target_id: null,
+      destination_location_id: null,
+    }
+    
     const response = await fetch(`${this.baseUrl}/api/v1/user/action`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(backendRequest),
     })
     
     if (!response.ok) {
-      throw new Error(`Failed to send user action: ${response.statusText}`)
+      const errorText = await response.text()
+      throw new Error(`Failed to send user action: ${response.status} ${errorText}`)
     }
     
-    return response.json()
+    const data = await response.json()
+    // Convert backend response to frontend format
+    return {
+      success: data.success,
+      message: data.message,
+      timestamp: Date.now(), // Backend doesn't return timestamp, use current time
+    }
   }
 
   /**
