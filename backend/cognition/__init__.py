@@ -52,6 +52,7 @@ from backend.cognition.numeric_updates import (
 from backend.cognition.service import (
     CognitionService,
     CognitionInput,
+    SemanticCognitionInput,
     CognitionOutput
 )
 
@@ -95,5 +96,6 @@ __all__ = [
     # Service
     "CognitionService",
     "CognitionInput",
+    "SemanticCognitionInput",
     "CognitionOutput"
 ]

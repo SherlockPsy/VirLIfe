@@ -79,6 +79,40 @@ class CognitionInput:
 
 
 @dataclass
+class SemanticCognitionInput:
+    """
+    Semantic-only cognition input.
+
+    PFEE pre-computes all numeric → semantic mappings and passes only semantic
+    descriptors to the cognition service. Numeric state stays inside PFEE.
+    """
+
+    agent_id: str
+    event_type: str
+    event_time: datetime
+    event_description: str
+
+    personality: Dict[str, Any]
+    personality_activation: str
+    mood_summary: str
+    drives_summary: List[Dict[str, str]]
+    relationships_summary: Dict[str, Dict[str, str]]
+    arcs_summary: List[str]
+    energy_summary: str
+    intentions_summary: List[str]
+    memories: Dict[str, List[Dict]]
+
+    event_participants: Dict[str, Dict]
+    event_topics: List[str]
+    event_triviality: EventTrivialityClassification
+    behavioral_choices: List[BehavioralChoice]
+
+    relevant_calendar_context: Optional[str] = None
+    relevant_unexpected_event_context: Optional[str] = None
+    eligibility_metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
 class CognitionOutput:
     """Output from the cognition pipeline."""
     agent_id: str
@@ -304,6 +338,74 @@ class CognitionService:
         finally:
             output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
         
+        return output
+
+    @staticmethod
+    def process_semantic_cognition(
+        cognition_input: "SemanticCognitionInput"
+    ) -> CognitionOutput:
+        """
+        Process cognition when PFEE already converted numeric state to semantics.
+
+        This path skips salience/M-score calculations (handled upstream) and
+        operates purely on semantic descriptors so that no numeric state is ever
+        sent to the LLM.
+        """
+        start_time = datetime.now()
+        output = CognitionOutput(
+            agent_id=cognition_input.agent_id,
+            event_time=cognition_input.event_time,
+            was_eligible=False
+        )
+
+        eligibility_metadata = cognition_input.eligibility_metadata or {}
+        output.eligibility_result = eligibility_metadata.get("eligibility_result")
+        output.was_eligible = eligibility_metadata.get("is_eligible", True)
+
+        if not output.was_eligible:
+            output.llm_called = False
+            output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+            return output
+
+        try:
+            context_packet = {
+                "agent_id": cognition_input.agent_id,
+                "event_description": cognition_input.event_description,
+                "event_time": cognition_input.event_time.isoformat(),
+                "personality": cognition_input.personality,
+                "personality_activation": cognition_input.personality_activation,
+                "mood": cognition_input.mood_summary,
+                "drives": cognition_input.drives_summary,
+                "relationships": cognition_input.relationships_summary,
+                "arcs": cognition_input.arcs_summary,
+                "energy": cognition_input.energy_summary,
+                "intentions": cognition_input.intentions_summary,
+                "memories": cognition_input.memories,
+                "participants": [
+                    {p_id: {"name": p_data.get("name", p_id)}}
+                    for p_id, p_data in cognition_input.event_participants.items()
+                ],
+                "event_topics": cognition_input.event_topics,
+                "event_type": cognition_input.event_type
+            }
+
+            if cognition_input.relevant_calendar_context:
+                context_packet["calendar_context"] = cognition_input.relevant_calendar_context
+
+            if cognition_input.relevant_unexpected_event_context:
+                context_packet["unexpected_event_context"] = cognition_input.relevant_unexpected_event_context
+
+            llm_response = LLMCognitionWrapper.call_cognition_llm(context_packet)
+            output.llm_called = True
+            output.llm_response = llm_response
+
+        except Exception as e:
+            output.errors.append(f"Semantic cognition pipeline error: {str(e)}")
+            output.llm_called = False
+
+        finally:
+            output.execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
         return output
     
     @staticmethod

@@ -149,8 +149,9 @@ async def test_validate_object_existence(session: AsyncSession):
         llm_output, world_state, context
     )
     
-    # Should be invalid if object doesn't exist (or valid if parsing doesn't detect it)
     assert isinstance(result, ValidationResult)
+    assert not result.is_valid
+    assert "object" in (result.reason or "")
 
 
 @pytest.mark.asyncio
@@ -179,6 +180,74 @@ async def test_validate_location_consistency(session: AsyncSession):
         llm_output, world_state, context
     )
     
-    # Should validate (may pass if location change is allowed)
     assert isinstance(result, ValidationResult)
+    assert not result.is_valid
+    assert "location" in (result.reason or "")
+
+
+@pytest.mark.asyncio
+async def test_validate_relationship_contradiction(session: AsyncSession):
+    """Contradictions with high-familiarity relationships are rejected."""
+    orchestrator = PerceptionOrchestrator(session)
+    
+    llm_output = CognitionLLMResponse(
+        utterance="We have never met before.",
+        action=None,
+        stance_shifts=[],
+        intention_updates=[]
+    )
+    
+    world_state = {
+        "persistent_agents_present_with_user": [
+            {"id": 1, "name": "Rebecca"}
+        ],
+        "current_location_id": 1
+    }
+    
+    context = {
+        "_eligibility_numeric_state": {
+            "relationships": {
+                "agent:1": {"familiarity": 0.92, "warmth": 0.75}
+            }
+        }
+    }
+    
+    result = await orchestrator._validate_llm_output_against_world(
+        llm_output, world_state, context
+    )
+    
+    assert isinstance(result, ValidationResult)
+    assert not result.is_valid
+    assert "relationship" in (result.reason or "")
+
+
+@pytest.mark.asyncio
+async def test_validate_physical_impossibility(session: AsyncSession):
+    """Impossible physics actions are rejected deterministically."""
+    orchestrator = PerceptionOrchestrator(session)
+    
+    llm_output = CognitionLLMResponse(
+        utterance=None,
+        action="teleports across the city",
+        stance_shifts=[],
+        intention_updates=[]
+    )
+    
+    world_state = {
+        "persistent_agents_present_with_user": [
+            {"id": 1, "name": "Rebecca"}
+        ],
+        "current_location_id": 1
+    }
+    
+    context = {}
+    
+    result = await orchestrator._validate_llm_output_against_world(
+        llm_output, world_state, context
+    )
+    
+    assert isinstance(result, ValidationResult)
+    assert not result.is_valid
+    assert "physically_impossible" in (result.reason or "")
+    assert result.corrected_output is not None
 

@@ -23,9 +23,10 @@ from backend.pfee.influence_fields import InfluenceFieldManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
 from backend.pfee.logging import PFEELogger
 from backend.pfee.semantic_mapping import PFEESemanticMapper
-from backend.pfee.validation import ValidationResult
+from backend.pfee.validation import ValidationResult, validate_llm_output_against_world
 
-from backend.cognition.service import CognitionService, CognitionInput
+from backend.cognition.service import CognitionService, SemanticCognitionInput
+from backend.mapping.semantic_mappers import PersonalityMapper
 from backend.cognition.salience import SalienceCalculator
 from backend.cognition.meaningfulness import MeaningfulnessCalculator
 from backend.cognition.eligibility import CognitionEligibilityChecker
@@ -209,7 +210,7 @@ class PerceptionOrchestrator:
             cognition_output = None
             if cognition_input:
                 try:
-                    cognition_result = self.cognition_service.process_cognition(cognition_input)
+                    cognition_result = self.cognition_service.process_semantic_cognition(cognition_input)
                     if cognition_result.was_eligible and cognition_result.llm_response:
                         # Validate LLM output against world state before applying
                         validation_result = await self._validate_llm_output_against_world(
@@ -226,11 +227,18 @@ class PerceptionOrchestrator:
                                 f"LLM output rejected: {validation_result.reason}",
                                 exception=None
                             )
-                            # Use fallback behavior (no cognition output)
-                            cognition_output = None
+                            # Deterministic fallback (silence + no action)
+                            if validation_result.corrected_output:
+                                fallback = validation_result.corrected_output.copy()
+                                fallback["agent_id"] = cognition_result.agent_id
+                                fallback.setdefault("stance_shifts", [])
+                                fallback.setdefault("intention_updates", [])
+                                cognition_output = fallback
+                            else:
+                                cognition_output = None
                         else:
                             # Output is valid, use it
-                        cognition_output = {
+                            cognition_output = {
                             "agent_id": cognition_result.agent_id,
                             "utterance": cognition_result.llm_response.utterance,
                             "action": cognition_result.llm_response.action,
@@ -518,7 +526,7 @@ class PerceptionOrchestrator:
         entities: List[Dict[str, Any]],
         context: Dict[str, Any],
         eligibility_result: Dict[str, Any]
-    ) -> Optional[CognitionInput]:
+    ) -> Optional[SemanticCognitionInput]:
         """
         Build cognition input packet with ONLY semantic summaries (no numeric state).
         
@@ -621,59 +629,48 @@ class PerceptionOrchestrator:
             relationships
         )
         
-        # Store semantic summaries in context
+        from backend.cognition.eligibility import EventTrivialityClassification, BehavioralChoice
+        from backend.mapping.semantic_mappers import PersonalityMapper
+        
+        personality_kernel = numeric_state.get("personality_kernel", {})
+        personality_stable = PersonalityMapper.map_stable_summary(personality_kernel)
+        personality_domain = PersonalityMapper.map_domain_summaries(personality_kernel)
+        semantic_personality = {
+            "stable_summary": personality_stable,
+            "domain_summaries": personality_domain
+        }
+        
+        # Store semantic summaries in context for renderer/validation
         context["semantic_summaries"] = {
+            "personality": semantic_personality,
+            "personality_activation": semantic_activation,
             "mood": semantic_mood,
             "drives": semantic_drives,
             "relationships": semantic_relationships,
             "arcs": semantic_arcs,
             "energy": semantic_energy,
-            "intentions": semantic_intentions,
-            "personality_activation": semantic_activation
+            "intentions": semantic_intentions
         }
         
-        # Build CognitionInput
-        # Note: CognitionService.process_cognition() expects numeric values for eligibility,
-        # but we've already computed eligibility in PFEE. However, CognitionService's interface
-        # still expects numeric. We pass numeric values here, but they are ONLY used for
-        # CognitionService's internal eligibility check (which will pass since we pre-computed).
-        # The LLM inside CognitionService receives ONLY semantic summaries (CognitionService
-        # converts numeric to semantic before LLM call, lines 185-259 in cognition/service.py).
-        #
-        # This maintains the separation: numeric values stay in PFEE context for eligibility,
-        # semantic values are what the LLM sees.
-        from backend.cognition.eligibility import EventTrivialityClassification, BehavioralChoice
+        eligibility_metadata = {
+            "is_eligible": eligibility_result.get("is_eligible", True),
+            "eligibility_result": eligibility_result.get("eligibility_result")
+        }
         
-        # Get numeric values from context (for CognitionService's interface)
-        # These are NOT passed to LLM - CognitionService converts to semantic before LLM call
-        numeric_state = context.get("_eligibility_numeric_state", {})
-        
-        return CognitionInput(
+        return SemanticCognitionInput(
             agent_id=str(agent_id),
             event_type="agent_initiative",
             event_time=world_state.get("current_time", datetime.now(timezone.utc)),
             event_description="Agent has initiative to act based on internal state",
-            # Pass numeric values (CognitionService interface requirement)
-            # BUT: CognitionService converts these to semantic BEFORE LLM call
-            personality_kernel=numeric_state.get("personality_kernel", {}),
-            personality_activation={
-                "stress_modulation": sum(numeric_state.get("drives", {}).values()) / max(len(numeric_state.get("drives", {})), 1) if numeric_state.get("drives") else 0.0,
-                "arousal_modulation": numeric_state.get("mood", {}).get("arousal", 0.0),
-                "valence_modulation": numeric_state.get("mood", {}).get("valence", 0.0),
-                "energy_modulation": numeric_state.get("energy", 1.0)
-            },
-            mood=(
-                numeric_state.get("mood", {}).get("valence", 0.0),
-                numeric_state.get("mood", {}).get("arousal", 0.0)
-            ),
-            drives=numeric_state.get("drives", {}),
-            arcs=numeric_state.get("arcs", {}),
-            energy=numeric_state.get("energy", 1.0),
-            relationships=numeric_state.get("relationships", {}),
-            intentions=numeric_state.get("intentions", {}),
-            # Memories (semantic/textual - already semantic)
+            personality=semantic_personality,
+            personality_activation=semantic_activation,
+            mood_summary=semantic_mood,
+            drives_summary=semantic_drives,
+            relationships_summary=semantic_relationships,
+            arcs_summary=semantic_arcs,
+            energy_summary=semantic_energy,
+            intentions_summary=semantic_intentions,
             memories={"episodic": episodic, "biographical": biographical},
-            # Event context (identifiers and metadata)
             event_participants=event_participants,
             event_topics=context.get("topics", []),
             event_triviality=EventTrivialityClassification.NON_TRIVIAL,
@@ -684,7 +681,7 @@ class PerceptionOrchestrator:
             ],
             relevant_calendar_context=context.get("calendar_context"),
             relevant_unexpected_event_context=context.get("unexpected_event_context"),
-            last_cognition_time=agent.last_cognition_timestamp
+            eligibility_metadata=eligibility_metadata
         )
     
     async def _build_renderer_input(
@@ -701,9 +698,12 @@ class PerceptionOrchestrator:
         Ensures no raw numeric state is passed to renderer.
         Renderer receives only semantic descriptions and perception data.
         """
-        # Build semantic perception packet (no numeric state)
+        semantic_context = context.get("semantic_summaries", {})
+        
         perception_packet = {
             "location_id": world_state.get("current_location_id"),
+            "location_name": world_state.get("current_location"),
+            "time": world_state.get("current_time"),
             "agents_present": [
                 {
                     "id": agent.get("id"),
@@ -740,9 +740,8 @@ class PerceptionOrchestrator:
             ]
         }
         
-        # Include semantic summaries if available (from cognition context)
-        if "semantic_summaries" in context:
-            perception_packet["semantic_context"] = context["semantic_summaries"]
+        if semantic_context:
+            perception_packet["semantic_context"] = semantic_context
         
         return perception_packet
     
@@ -796,125 +795,5 @@ class PerceptionOrchestrator:
         world_state: Dict[str, Any],
         context: Dict[str, Any]
     ) -> ValidationResult:
-        """
-        Validate LLM output against world state.
-        
-        Implements PFEE_LOGIC.md §9 contradiction handling logic.
-        
-        Checks:
-        - Agent presence (stance shifts, intention updates)
-        - Object existence (actions that reference objects)
-        - Location consistency (actions that imply location changes)
-        - Relationship contradictions (assertions that contradict stored edges)
-        
-        Args:
-            llm_output: LLM response (utterance, action, stance_shifts, intention_updates)
-            world_state: Current authoritative world state
-            context: PFEE context
-            
-        Returns:
-            ValidationResult with is_valid, reason, and optional corrected_output
-        """
-        from backend.cognition.llm_wrapper import CognitionLLMResponse
-        
-        if not isinstance(llm_output, CognitionLLMResponse):
-            return ValidationResult.invalid("invalid_output_type")
-        
-        # Get current world state
-        agents_present_ids = [
-            agent.get("id") for agent in world_state.get("persistent_agents_present_with_user", [])
-        ]
-        current_location_id = world_state.get("current_location_id")
-        current_location_name = world_state.get("current_location", "")
-        
-        # Get objects in current location
-        objects_in_location = world_state.get("objects_in_location", [])
-        object_names = [obj.get("name", "").lower() for obj in objects_in_location]
-        
-        # 1. Validate agent presence (stance shifts)
-        if llm_output.stance_shifts:
-            for shift in llm_output.stance_shifts:
-                target = shift.target if hasattr(shift, "target") else ""
-                if target.startswith("agent:"):
-                    agent_id_str = target.replace("agent:", "")
-                    try:
-                        agent_id = int(agent_id_str)
-                        if agent_id not in agents_present_ids:
-                            return ValidationResult.invalid(
-                                f"stance_shift_target_not_present: {target} (agent {agent_id} not in current location)"
-                            )
-                    except ValueError:
-                        return ValidationResult.invalid(f"invalid_stance_shift_target: {target}")
-        
-        # 2. Validate agent presence (intention updates)
-        if llm_output.intention_updates:
-            for update in llm_output.intention_updates:
-                target = update.target if hasattr(update, "target") else None
-                if target and target.startswith("agent:"):
-                    agent_id_str = target.replace("agent:", "")
-                    try:
-                        agent_id = int(agent_id_str)
-                        if agent_id not in agents_present_ids:
-                            return ValidationResult.invalid(
-                                f"intention_update_target_not_present: {target} (agent {agent_id} not in current location)"
-                            )
-                    except ValueError:
-                        # Target might be a topic, not an agent - that's OK
-                        pass
-        
-        # 3. Validate object existence (actions)
-        if llm_output.action:
-            action_lower = llm_output.action.lower()
-            
-            # Check for object references
-            object_keywords = ["uses", "picks up", "grabs", "takes", "holds", "drops", "puts down"]
-            for keyword in object_keywords:
-                if keyword in action_lower:
-                    # Extract object name from action (simplified parsing)
-                    words = action_lower.split()
-                    keyword_idx = words.index(keyword) if keyword in words else -1
-                    if keyword_idx >= 0 and keyword_idx + 1 < len(words):
-                        # Next word might be the object
-                        potential_object = words[keyword_idx + 1]
-                        # Remove common articles
-                        if potential_object in ["the", "a", "an"]:
-                            if keyword_idx + 2 < len(words):
-                                potential_object = words[keyword_idx + 2]
-                        
-                        # Check if object exists
-                        if potential_object and potential_object not in object_names:
-                            # Check if it's a generic action (like "uses phone" when phone might be implied)
-                            # For now, we'll be strict: if object is mentioned, it must exist
-                            if len(potential_object) > 2:  # Ignore very short words
-                                return ValidationResult.invalid(
-                                    f"action_references_nonexistent_object: '{potential_object}' not in current location"
-                                )
-        
-        # 4. Validate location consistency
-        if llm_output.action:
-            action_lower = llm_output.action.lower()
-            
-            # Check for location-changing actions without movement event
-            location_keywords = ["goes to", "enters", "leaves", "arrives at", "moves to"]
-            for keyword in location_keywords:
-                if keyword in action_lower:
-                    # If action implies location change, check if there's a corresponding movement event
-                    # For now, we'll flag it as potentially inconsistent
-                    # (Full implementation would check for movement events in context)
-                    pass
-        
-        # 5. Validate relationship contradictions
-        # Check if output asserts relationship states that contradict stored edges
-        # This is a simplified check - full implementation would parse relationship assertions
-        if llm_output.utterance:
-            utterance_lower = llm_output.utterance.lower()
-            
-            # Check for contradictions like "we have never met" for agents with high familiarity
-            if "never met" in utterance_lower or "don't know" in utterance_lower:
-                # Would need to check relationship familiarity - simplified for now
-                # If familiarity > 0.5, this would be a contradiction
-                pass
-        
-        # All checks passed
-        return ValidationResult.valid()
+        return validate_llm_output_against_world(llm_output, world_state, context)
 
