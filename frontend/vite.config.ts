@@ -13,6 +13,12 @@ export default defineConfig({
     port: parseInt(process.env.PORT || '3000', 10),
     host: true,
     strictPort: false, // Allow port fallback if PORT is not available
+    // Allow all hosts for Railway deployment
+    allowedHosts: [
+      '.railway.app',
+      '.up.railway.app',
+      'localhost',
+    ],
   },
   build: {
     outDir: 'dist',
