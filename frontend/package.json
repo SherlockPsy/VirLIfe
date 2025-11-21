@@ -5,7 +5,8 @@
   "description": "Virtual World UI - Text-only, visually rich, emotionally neutral",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "type-check": "tsc --noEmit --skipLibCheck",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",

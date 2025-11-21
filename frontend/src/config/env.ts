@@ -7,7 +7,8 @@
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
   // In Vite, env vars are prefixed with VITE_ and exposed via import.meta.env
-  const value = import.meta.env[`VITE_${key}`] || import.meta.env[key] || defaultValue
+  const env = import.meta.env as Record<string, string | undefined>
+  const value = env[`VITE_${key}`] || env[key] || defaultValue
   
   if (!value && !defaultValue) {
     console.warn(`Environment variable ${key} is not set`)

@@ -19,7 +19,7 @@ interface PhoneStore extends PhoneState {
   clearNotifications: () => void
 }
 
-export const usePhoneStore = create<PhoneStore>((set, get) => ({
+export const usePhoneStore = create<PhoneStore>((set) => ({
   isOpen: false,
   currentApp: null,
   messages: [],

@@ -8,5 +8,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
   },
+  // Exclude test files from build
+  build: {
+    rollupOptions: {
+      external: ['vitest', '@testing-library/react', '@testing-library/jest-dom'],
+    },
+  },
 })
 

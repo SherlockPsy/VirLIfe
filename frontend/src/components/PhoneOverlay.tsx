@@ -14,7 +14,6 @@
  * - Panel layout
  */
 
-import { useState } from 'react'
 import { PhoneApp } from '../types/phone'
 import PhoneAppView from './PhoneAppView'
 import './PhoneOverlay.css'

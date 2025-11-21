@@ -37,10 +37,8 @@ class TTSService {
     if (this.isEnabled) {
       // Handle speech synthesis events
       if (window.speechSynthesis) {
-        window.speechSynthesis.onend = () => {
-          this.isSpeaking = false
-          this.processQueue()
-        }
+        // Note: onend is not a standard property, we'll handle it via utterance events
+        // This is handled in the speak() method via utterance.onend
       }
     }
   }

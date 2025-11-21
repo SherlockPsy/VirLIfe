@@ -64,25 +64,26 @@ function App() {
 
   // Subscribe to timeline messages for TTS
   useEffect(() => {
-    const unsubscribe = useTimelineStore.subscribe(
-      (state) => state.messages,
-      (messages) => {
-        // Enqueue latest message for TTS
-        if (messages.length > 0) {
-          const latestMessage = messages[messages.length - 1]
-          ttsService.enqueue(latestMessage)
-        }
+    let previousMessageCount = messages.length
+    
+    // Subscribe to all state changes and check if messages changed
+    const unsubscribe = useTimelineStore.subscribe((state) => {
+      const currentMessageCount = state.messages.length
+      // Only enqueue if a new message was added
+      if (currentMessageCount > previousMessageCount && state.messages.length > 0) {
+        const latestMessage = state.messages[state.messages.length - 1]
+        ttsService.enqueue(latestMessage)
+        previousMessageCount = currentMessageCount
       }
-    )
+    })
     
     return unsubscribe
-  }, [])
+  }, [messages.length])
 
   const {
     isOpen: isPhoneOpen,
     currentApp,
     unreadCount,
-    openPhone,
     closePhone,
     setCurrentApp,
   } = usePhoneStore()
