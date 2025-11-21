@@ -3,12 +3,14 @@ import json
 import asyncio
 from typing import Set
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from backend.config.settings import settings
 from backend.persistence.database import Base, AsyncSessionLocal
 from backend.persistence.models import *  # noqa
 from backend.gateway.handlers import GatewayAPI
+from backend.gateway.routes import router as gateway_router
 from backend.gateway.models import (
     UserActionRequest, UserActionResponse,
     WorldAdvanceRequest, WorldAdvanceResponse,
@@ -31,6 +33,23 @@ except ImportError:
     QDRANT_AVAILABLE = False
 
 app = FastAPI(title=settings.app_name)
+
+# CORS Configuration - Allow frontend to access backend
+# Per Plan.md Phase 10.9: Frontend needs to make cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://virlife-frontend-production.up.railway.app",
+        "http://localhost:3000",
+        "http://localhost:5173",  # Vite dev server
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include gateway router with /api/v1 prefix
+app.include_router(gateway_router)
 
 # WebSocket connection manager
 class ConnectionManager:
