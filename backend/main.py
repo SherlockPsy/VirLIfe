@@ -288,6 +288,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int = None):
     - user_id: User ID for filtering events (optional)
     """
     # Check origin for WebSocket (CORS middleware doesn't apply to WebSockets)
+    # Railway proxy may not send origin header, so we're lenient here
     origin = websocket.headers.get("origin")
     allowed_origins = [
         "https://virlife-frontend-production.up.railway.app",
@@ -295,12 +296,18 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int = None):
         "http://localhost:5173",
     ]
     
-    # Allow connection if origin is in allowed list or if origin is not set (Railway proxy)
-    if origin and origin not in allowed_origins:
-        # Check if it's a Railway internal request or if origin header is missing
-        if not any(allowed in origin for allowed in ["railway", "localhost"]):
-            await websocket.close(code=1008, reason="Origin not allowed")
-            return
+    # Allow connection if:
+    # 1. Origin is in allowed list
+    # 2. Origin is not set (Railway proxy or direct connection)
+    # 3. Origin contains "railway" or "localhost" (development)
+    if origin:
+        if origin not in allowed_origins:
+            # Still allow if it's a Railway or localhost origin (for development/proxy)
+            if not any(allowed in origin.lower() for allowed in ["railway", "localhost", "127.0.0.1"]):
+                # Reject only if origin is explicitly set and doesn't match any allowed pattern
+                print(f"WebSocket connection rejected: origin={origin}")
+                await websocket.close(code=1008, reason="Origin not allowed")
+                return
     
     # Accept WebSocket connection
     await manager.connect(websocket)
