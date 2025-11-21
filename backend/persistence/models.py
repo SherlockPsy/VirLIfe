@@ -257,7 +257,7 @@ class InfoEventModel(Base):
     recipient_type = Column(String, nullable=True)
     
     content = Column(Text, nullable=True)
-    metadata = Column(JSON, default={}, nullable=False)
+    metadata_payload = Column("metadata", JSON, default={}, nullable=False)
     
     scheduled_time = Column(DateTime(timezone=True), nullable=False)
     delivered = Column(Boolean, default=False, nullable=False)
@@ -277,6 +277,6 @@ class PFEELogModel(Base):
     component = Column(String, nullable=False)
     event_type = Column(String, nullable=True)
     message = Column(Text, nullable=False)
-    metadata = Column(JSON, default={}, nullable=False)
+    log_metadata = Column("metadata", JSON, default={}, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

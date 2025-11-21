@@ -58,7 +58,7 @@ class PFEELogger:
             log_type="trigger",
             component="TriggerEvaluator",
             message=f"Trigger fired: {trigger_reason}",
-            metadata={
+            log_metadata={
                 "trigger_reason": trigger_reason,
                 "agent_id": agent_id,
                 **(metadata or {})
@@ -78,7 +78,7 @@ class PFEELogger:
             log_type="potential",
             component="PotentialResolver",
             message=f"Potential resolved: {potential_type}",
-            metadata={
+            log_metadata={
                 "potential_id": potential_id,
                 "potential_type": potential_type,
                 "resolved_entity": resolved_entity
@@ -99,7 +99,7 @@ class PFEELogger:
             log_type="entity",
             component="EntityPersistenceManager",
             message=f"Entity classified: {persistence_level}",
-            metadata={
+            log_metadata={
                 "entity_id": entity_id,
                 "entity_type": entity_type,
                 "persistence_level": persistence_level,
@@ -120,7 +120,7 @@ class PFEELogger:
             log_type="llm_call",
             component="PerceptionOrchestrator",
             message=f"LLM call: {llm_type} for {purpose}",
-            metadata={
+            log_metadata={
                 "llm_type": llm_type,
                 "purpose": purpose,
                 "agent_id": agent_id
@@ -149,7 +149,7 @@ class PFEELogger:
             log_type="error",
             component=component,
             message=f"Error: {error_type}",
-            metadata=error_metadata
+            log_metadata=error_metadata
         )
         self.session.add(log_entry)
     
@@ -167,7 +167,7 @@ class PFEELogger:
             log_type="cycle",
             component="PerceptionOrchestrator",
             message="Perception cycle completed",
-            metadata={
+            log_metadata={
                 "triggers": triggers,
                 "resolved_potentials": resolved_potentials,
                 "entities_instantiated": len(entities),
