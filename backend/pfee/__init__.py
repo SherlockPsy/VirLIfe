@@ -20,6 +20,7 @@ from backend.pfee.time_continuity import TimeAndContinuityManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
 from backend.pfee.logging import PFEELogger
 from backend.pfee.semantic_mapping import PFEESemanticMapper
+from backend.pfee.validation import ValidationResult
 
 __all__ = [
     # Entity Persistence (P1)
@@ -48,5 +49,7 @@ __all__ = [
     "PFEELogger",
     # Semantic Mapping
     "PFEESemanticMapper",
+    # Validation
+    "ValidationResult",
 ]
 
