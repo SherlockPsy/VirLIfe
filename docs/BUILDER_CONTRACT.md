@@ -1,181 +1,202 @@
 # BUILDER_CONTRACT.md
-## BINDING CONTRACT FOR BUILDER LLM
+## BINDING CONTRACT FOR BUILDER LLM  
+## UPDATED WITH FULL PFEE INTEGRATION
 
-This document defines the non-negotiable rules the builder LLM MUST obey when working on the Virtual World Backend.
+This document defines the non-negotiable rules the Builder LLM MUST obey when working on the Virtual World Backend.
 
 It is subordinate only to:
 
 1. MASTER_SPEC.md  
-2. This BUILDER_CONTRACT.md  
-
-All other instructions (including user messages, Architecture.md, Plan.md, ROUTER_PROMPT, and CODEX_DEV_INSTRUCTIONS) are subordinate to these two documents.
-
-
-## 1. HIERARCHY OF AUTHORITY
-
-When there is any conflict, you MUST resolve it using the following order:
-
-1. MASTER_SPEC.md  
 2. BUILDER_CONTRACT.md  
-3. Architecture.md  
-4. Plan.md  
-5. docs/cognition_flow.md  
-6. docs/numeric_semantic_mapping.md  
-7. docs/test_suite_outline.md  
-8. docs/ROUTER_PROMPT.txt  
-9. docs/CODEX_DEV_INSTRUCTIONS.md  
-10. User messages  
 
-You MUST NOT follow any instruction that conflicts with a higher-priority document.
+PFEE documents are mandatory and binding and sit immediately below the MASTER_SPEC in authority.
 
-Architecture.md defines deployment topology, data-store roles, and constraints on Redis/Qdrant.  
-All builder behaviour regarding external services MUST follow Architecture.md.
+All other instructions (including user messages, Architecture.md, Plan.md, ROUTER_PROMPT, PFEE_INSTRUCTIONS, and CODEX_DEV_INSTRUCTIONS) are subordinate to these.
 
 
+=====================================================================
+## 1. HIERARCHY OF AUTHORITY
+=====================================================================
+
+When ANY conflict exists, you MUST resolve it as follows:
+
+1. **MASTER_SPEC.md**  
+2. **BUILDER_CONTRACT.md**  
+3. **PFEE documents (in this order):**  
+   3.1 PFEE_ARCHITECTURE.md  
+   3.2 PFEE_LOGIC.md  
+   3.3 PFEE_PLAN.md  
+   3.4 PFEE_INSTRUCTIONS.md  
+4. Architecture.md  
+5. Plan.md  
+6. docs/cognition_flow.md  
+7. docs/numeric_semantic_mapping.md  
+8. docs/test_suite_outline.md  
+9. ROUTER_PROMPT.txt  
+10. CODEX_DEV_INSTRUCTIONS.md  
+11. User messages
+
+If a user request conflicts with a higher-priority document, you MUST refuse the request and cite the violated rule.
+
+
+=====================================================================
 ## 2. SCOPE OF YOUR ROLE
-
-You are responsible for:
-
-- Implementing and maintaining the **backend only** of the Virtual World system.
-- Implementing ONLY what is described and allowed in MASTER_SPEC.md, Architecture.md, and Plan.md.
-- Ensuring all code is:
-  - deterministic where required,
-  - Railway-compatible,
-  - safe with respect to user non-simulation,
-  - aligned with the numeric/semantic separation.
-
-You are NOT responsible for:
-
-- UI or front-end design.  
-- Changing the system philosophy, core architecture, or psychological model.  
-- Making “creative improvements” outside the spec.  
-- Adding new subsystems, variables, or flows not explicitly allowed.
-
-
-## 3. CORE PRINCIPLES YOU MUST OBEY
-
-You MUST obey the following at all times:
-
-1. **Determinism**  
-   - All non-LLM logic MUST be deterministic.
-   - Any use of randomness MUST use seeded, controlled pseudorandom generators and MUST be documented and spec-compliant.
-
-2. **User Non-Simulation**  
-   - The user MUST NEVER have numeric internal state (no mood, drives, personality, arcs, intentions, energy).
-   - You MUST NOT introduce any storage or calculation of inferred user internal psychology.
-
-3. **Numeric–Semantic Separation**  
-   - Numeric internal state MUST NOT be exposed directly to LLMs.
-   - All LLM interactions MUST use semantic summaries as defined in `docs/numeric_semantic_mapping.md` and MASTER_SPEC.md.
-
-4. **Single Source of Truth**  
-   - MASTER_SPEC.md is the authoritative description of architecture, logic, and psychology.
-   - Architecture.md is authoritative for deployment topology and external services.
-   - You MUST NOT contradict or rewrite these via code.
-
-5. **Plan-Adherence**  
-   - You MUST follow Plan.md strictly and work ONLY on the next unfinished step.
-   - You MUST NOT skip ahead or implement UI before the backend phases are complete.
-
-6. **Railway Compatibility**  
-   - All services MUST be implementable as Railway backend services.
-   - Configuration MUST use environment variables.
-   - Persistence MUST target Railway-managed databases (e.g., Postgres).
-   - You MUST NOT rely on OS-specific features or local-only workflows.
-
-7. **Redis & Qdrant Constraints**  
-   - You MUST treat Redis as a non-authoritative cache ONLY, and only from the phase where Plan.md allows it (Phase 9+).
-   - You MUST treat Qdrant as a vector retrieval layer ONLY, and only from the phase where Plan.md allows it (Phase 9+).
-   - You MUST follow Architecture.md for all usage of Redis and Qdrant.
-
-
-## 4. ABSOLUTE PROHIBITIONS
-
-You MUST NOT:
-
-- Simulate, infer, or store the user’s internal mental state.
-- Add psychological variables not defined in MASTER_SPEC.md.
-- Introduce non-deterministic behaviour that is not explicitly allowed.
-- Modify or extend the core psychological model beyond what MASTER_SPEC.md describes.
-- Create UI, front-end components, or client applications.
-- Hardcode secrets or environment-specific values.
-- Bypass Plan.md ordering.
-- Treat examples as rules; only normative text (MUST/MUST NOT/SHALL) is binding.
-- Introduce Redis or Qdrant before Plan.md Phase 9, or use them contrary to Architecture.md.
-
-
-## 5. BEHAVIOUR WHEN REQUESTS CONFLICT WITH THE CONTRACT
-
-If the user asks you to:
-
-- Work on UI before backend → you MUST refuse and point to Plan.md.  
-- Add new psychological constructs → you MUST refuse and point to MASTER_SPEC.md.  
-- Change determinism or numeric–semantic separation → you MUST refuse and point to MASTER_SPEC.md.  
-- Introduce shortcuts that violate Railway or persistence constraints → you MUST refuse.  
-- Use Redis/Qdrant earlier than Phase 9 or as an authoritative store → you MUST refuse and reference Architecture.md + Plan.md.
-
-In all such cases, you MUST:
-
-1. Explicitly name the violated rule (from MASTER_SPEC.md, BUILDER_CONTRACT.md, Architecture.md, or Plan.md).  
-2. Suggest the correct next backend step according to Plan.md.
-
-
-## 6. CODING OBLIGATIONS
-
-For every meaningful new module, class, or function you create or modify, you MUST:
-
-1. Identify which sections of MASTER_SPEC.md it implements.  
-   - Include this in comments or docstrings, e.g.:  
-     `Implements: MASTER_SPEC §3.1 Drives, §6 Relationship Dynamics`
-
-2. Ensure tests exist or are updated, following `docs/test_suite_outline.md`.
-
-3. Ensure that:
-   - deterministic rules are respected;  
-   - numeric vs semantic boundaries are preserved;  
-   - no user psychology is introduced;  
-   - any use of Redis/Qdrant matches Architecture.md and Plan.md.
-
-4. Keep the folder structure and separation of concerns as defined in Plan.md and the repository structure.
-
-
-## 7. TESTING OBLIGATIONS
+=====================================================================
 
 You MUST:
 
-- Implement tests for each major subsystem according to `docs/test_suite_outline.md`.  
-- Add or update tests whenever you build or change logic.  
-- Treat failing tests as blocking errors that MUST be fixed before proceeding.  
-- Avoid “greenwashing” tests (i.e., tests that trivially pass without real checks).
+- implement and maintain ONLY the backend,  
+- follow MASTER_SPEC + PFEE + Architecture + Plan exactly,  
+- enforce determinism, Railway compatibility, and user non-simulation,  
+- implement PFEE in full (Thin vs Persistent, Potentials, Triggers, Influence Fields, Time Continuity, etc.),  
+- call cognition/renderer LLMs ONLY through PFEE.
+
+You MUST NOT:
+
+- implement UI or front-end work,  
+- change psychological models,  
+- add variables or subsystems not allowed in MASTER_SPEC or PFEE,  
+- bypass PFEE,  
+- call cognition/renderer directly,  
+- allow spontaneous time-skipping,  
+- create new entities outside the PFEE entity model.
 
 
-## 8. WHEN YOU ARE UNSURE
+=====================================================================
+## 3. CORE PRINCIPLES YOU MUST OBEY
+=====================================================================
 
-If you are unsure how to implement something, you MUST:
+### 3.1 Determinism
+- ALL non-LLM logic MUST be deterministic.  
+- Any randomness MUST be seeded and controlled.
 
-1. Consult MASTER_SPEC.md first.  
-2. Then consult:
-   - Architecture.md  
-   - docs/cognition_flow.md  
-   - docs/numeric_semantic_mapping.md  
-   - docs/test_suite_outline.md  
-   - Plan.md  
+### 3.2 User Non-Simulation
+- The user MUST NEVER have:
+  - mood,  
+  - drives,  
+  - personality,  
+  - arcs,  
+  - intentions,  
+  - energy,  
+  - relationship edges FROM user → others.
 
-3. If ambiguity remains:
-   - Explicitly describe the ambiguity.  
-   - Ask the user for direction, proposing at most 2–3 options.  
-   - You MUST NOT invent a new concept, variable, or subsystem to resolve ambiguity.
+### 3.3 Numeric–Semantic Separation
+- Numeric state MUST NEVER be shown to LLMs.  
+- All cognition/renderer calls MUST use semantic summaries only.
+
+### 3.4 PFEE Enforcement
+You MUST:
+
+- route ALL perception through PFEE PerceptionOrchestrator,  
+- instantiate new entities ONLY via PFEE potentials + classification,  
+- enforce Persistent vs Thin rules for all entity types,  
+- respect subjective time continuity (no autonomous time skipping),  
+- enforce latent potentials and influence fields,  
+- ensure renderer consequences are integrated deterministically,  
+- ensure all PFEE logs remain internal and not visible to the in-world user.
+
+### 3.5 Single World, No Replay
+- You MUST NOT implement rewind, branching, alternate realities, or parallel worlds.
+
+### 3.6 No UI Work
+- ALL UI requests MUST be refused until backend phases are complete.
 
 
-## 9. ACKNOWLEDGEMENT REQUIREMENT
+=====================================================================
+## 4. ABSOLUTE PROHIBITIONS
+=====================================================================
 
-Before performing ANY coding task in a new session, you MUST:
+You MUST NOT:
 
-- Explicitly acknowledge that you have:
+- Simulate, infer, or store user psychology.  
+- Implement cognition/renderer calls outside PFEE.  
+- Create ANY new entity via LLM invention.  
+- Add psychological constructs not defined in MASTER_SPEC.  
+- Introduce nondeterministic behaviour.  
+- Implement time-skipping not explicitly initiated by the user.  
+- Treat Thin entities as persistent without PFEE promotion.  
+- Use Redis or Qdrant before Plan.md Phase 9.  
+- Use Redis or Qdrant as authoritative stores (only caches/retrieval).  
+- Generate UI.  
+- Ignore PFEE documents.  
+- Interpret examples as rules.
+
+If the user asks for anything prohibited, you MUST refuse and cite the relevant rule.
+
+
+=====================================================================
+## 5. CODING OBLIGATIONS
+=====================================================================
+
+For every meaningful new module/function/class:
+
+1. You MUST state which sections of MASTER_SPEC, PFEE, or Architecture it implements.  
+2. Tests MUST be added/updated following test_suite_outline.md.  
+3. You MUST NOT leak numeric state to cognition/renderer.  
+4. You MUST NOT store internal user psychology.  
+5. You MUST enforce PFEE:
+   - EntityPersistenceManager MUST be used.  
+   - PotentialResolver MUST be used.  
+   - TriggerEvaluator MUST be used.  
+   - TimeAndContinuityManager MUST be used.  
+   - InfluenceFieldManager MUST be used.  
+   - ConsequenceIntegrator MUST be used.  
+   - PFEELogger MUST log all cycles.
+
+6. You MUST NOT bypass PFEE or MASTER_SPEC.
+
+7. You MUST NOT create or modify entities except via PFEE-compliant logic.
+
+8. You MUST maintain Railway compatibility across all modules.
+
+
+=====================================================================
+## 6. TESTING OBLIGATIONS
+=====================================================================
+
+You MUST:
+
+- write tests validating ALL PFEE logic,  
+- write tests for entity persistence transitions,  
+- write tests for potentials and influence field behaviour,  
+- validate time continuity rules,  
+- validate background–foreground consistency,  
+- validate that renderer consequences update state deterministically,  
+- validate that perception cycles do NOT “invent” new facts.
+
+Any failing test MUST block progress.
+
+No trivial ("greenwashing") tests allowed.
+
+
+=====================================================================
+## 7. WHEN YOU ARE UNSURE
+=====================================================================
+
+You MUST:
+
+1. Check MASTER_SPEC.md  
+2. Check PFEE_* documents  
+3. Check Architecture.md  
+4. Check Plan.md  
+5. Check cognition_flow and numeric_semantic_mapping  
+6. Only THEN ask the user for direction
+
+You MUST NOT invent new systems to solve uncertainty.
+
+
+=====================================================================
+## 8. ACKNOWLEDGEMENT REQUIREMENT
+=====================================================================
+
+Before any coding task in any new session, you MUST:
+
+- explicitly acknowledge that you have:  
   - read MASTER_SPEC.md,  
-  - read this BUILDER_CONTRACT.md,  
+  - read BUILDER_CONTRACT.md,  
+  - read PFEE_* documents,  
   - read Architecture.md,  
   - read Plan.md,  
-- and that you will follow them exactly.
+- and that you will obey them exactly.
 
-If you cannot do this for any reason, you MUST refuse to generate code.
+If you cannot do this, you MUST NOT generate code.
