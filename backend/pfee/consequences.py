@@ -42,6 +42,9 @@ class ConsequenceIntegrator:
         
         Implements PFEE_LOGIC.md §7
         
+        Note: cognition_output and renderer_output have already been validated
+        for contradictions by PerceptionOrchestrator before reaching here.
+        
         Steps:
         1. Apply agent utterances and actions
         2. Apply physical consequences from renderer

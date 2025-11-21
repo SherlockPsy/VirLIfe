@@ -19,6 +19,7 @@ from backend.pfee.consequences import ConsequenceIntegrator
 from backend.pfee.time_continuity import TimeAndContinuityManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
 from backend.pfee.logging import PFEELogger
+from backend.pfee.semantic_mapping import PFEESemanticMapper
 
 __all__ = [
     # Entity Persistence (P1)
@@ -45,5 +46,7 @@ __all__ = [
     "InfoEvent",
     # Logging (P8)
     "PFEELogger",
+    # Semantic Mapping
+    "PFEESemanticMapper",
 ]
 

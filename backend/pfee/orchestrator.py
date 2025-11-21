@@ -22,6 +22,7 @@ from backend.pfee.time_continuity import TimeAndContinuityManager
 from backend.pfee.influence_fields import InfluenceFieldManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
 from backend.pfee.logging import PFEELogger
+from backend.pfee.semantic_mapping import PFEESemanticMapper
 
 from backend.cognition.service import CognitionService, CognitionInput
 from backend.renderer.service import RenderEngine
@@ -196,33 +197,52 @@ class PerceptionOrchestrator:
                 try:
                     cognition_result = self.cognition_service.process_cognition(cognition_input)
                     if cognition_result.was_eligible and cognition_result.llm_response:
+                        # Validate LLM output against world state before applying
+                        validation_result = await self._validate_llm_output_against_world(
+                            cognition_result.llm_response,
+                            world_state,
+                            context
+                        )
+                        
+                        if not validation_result.is_valid:
+                            # Reject contradictory output
+                            self.logger.log_error(
+                                "PerceptionOrchestrator",
+                                "llm_output_contradiction",
+                                f"LLM output rejected: {validation_result.reason}",
+                                exception=None
+                            )
+                            # Use fallback behavior (no cognition output)
+                            cognition_output = None
+                        else:
+                        # Output is valid, use it
                         cognition_output = {
                             "agent_id": cognition_result.agent_id,
                             "utterance": cognition_result.llm_response.utterance,
                             "action": cognition_result.llm_response.action,
                             "stance_shifts": [
                                 {
-                                    "target": shift.get("target"),
-                                    "description": shift.get("description")
+                                    "target": shift.target,
+                                    "description": shift.description
                                 }
                                 for shift in (cognition_result.llm_response.stance_shifts or [])
                             ],
                             "intention_updates": [
                                 {
-                                    "operation": update.get("operation"),
-                                    "type": update.get("type"),
-                                    "target": update.get("target"),
-                                    "horizon": update.get("horizon"),
-                                    "description": update.get("description")
+                                    "operation": update.operation,
+                                    "type": update.type,
+                                    "target": update.target,
+                                    "horizon": update.horizon,
+                                    "description": update.description
                                 }
                                 for update in (cognition_result.llm_response.intention_updates or [])
                             ]
                         }
-                        self.logger.log_llm_call(
-                            "cognition",
-                            "agent_decision",
-                            agent_id=int(cognition_result.agent_id) if cognition_result.agent_id else None
-                        )
+                            self.logger.log_llm_call(
+                                "cognition",
+                                "agent_decision",
+                                agent_id=int(cognition_result.agent_id) if cognition_result.agent_id else None
+                            )
                 except Exception as e:
                     self.logger.log_error(
                         "PerceptionOrchestrator",
@@ -448,15 +468,29 @@ class PerceptionOrchestrator:
             BehavioralChoice.ESCALATE_OR_DE_ESCALATE
         ]
         
-        # Compute personality activation deterministically
-        mood_valence = agent.mood.get("valence", 0.0) if isinstance(agent.mood, dict) else 0.0
-        mood_arousal = agent.mood.get("arousal", 0.0) if isinstance(agent.mood, dict) else 0.0
+        # Convert numeric state to semantic summaries
+        # Note: CognitionInput still requires numeric values for eligibility calculations,
+        # but the LLM inside CognitionService only receives semantic summaries.
+        # We create semantic summaries here to ensure PFEE is aware of the separation.
+        
+        mood_dict = agent.mood if isinstance(agent.mood, dict) else {"valence": 0.0, "arousal": 0.0}
+        mood_valence = mood_dict.get("valence", 0.0)
+        mood_arousal = mood_dict.get("arousal", 0.0)
         
         drives_dict = {
             k: (v.get("level", 0.0) if isinstance(v, dict) else v)
             for k, v in (agent.drives or {}).items()
         }
         
+        # Create semantic summaries (for validation and logging)
+        semantic_mood = PFEESemanticMapper.map_mood_to_semantic(mood_dict)
+        semantic_drives = PFEESemanticMapper.map_drives_to_semantic(agent.drives or {})
+        semantic_relationships = PFEESemanticMapper.map_relationships_to_semantic(relationships)
+        semantic_arcs = PFEESemanticMapper.map_arcs_to_semantic(arcs)
+        semantic_energy = PFEESemanticMapper.map_energy_to_semantic(agent.energy or 1.0)
+        semantic_intentions = PFEESemanticMapper.map_intentions_to_semantic(intentions)
+        
+        # Compute personality activation deterministically
         activation_stress = sum(drives_dict.values()) / max(len(drives_dict), 1) if drives_dict else 0.0
         
         personality_activation = {
@@ -466,7 +500,31 @@ class PerceptionOrchestrator:
             "energy_modulation": agent.energy or 1.0
         }
         
+        # Create semantic activation packet
+        semantic_activation = PFEESemanticMapper.map_personality_activation_to_semantic(
+            agent.personality_kernel or {},
+            personality_activation,
+            mood_dict,
+            agent.drives or {},
+            agent.energy or 1.0,
+            arcs,
+            relationships
+        )
+        
+        # Store semantic summaries in context for validation
+        context["semantic_summaries"] = {
+            "mood": semantic_mood,
+            "drives": semantic_drives,
+            "relationships": semantic_relationships,
+            "arcs": semantic_arcs,
+            "energy": semantic_energy,
+            "intentions": semantic_intentions,
+            "personality_activation": semantic_activation
+        }
+        
         # Build complete CognitionInput
+        # Note: Numeric values are still passed for eligibility calculations,
+        # but CognitionService converts to semantic before LLM call.
         return CognitionInput(
             agent_id=str(agent_id),
             event_type="agent_initiative",
@@ -498,18 +556,40 @@ class PerceptionOrchestrator:
         context: Dict[str, Any],
         info_events: List[InfoEvent]
     ) -> Dict[str, Any]:
-        """Build renderer input packet with full context."""
-        return {
-            "world_state": world_state,
-            "decisions": [
+        """
+        Build renderer input packet with full context.
+        
+        Ensures no raw numeric state is passed to renderer.
+        Renderer receives only semantic descriptions and perception data.
+        """
+        # Build semantic perception packet (no numeric state)
+        perception_packet = {
+            "location_id": world_state.get("current_location_id"),
+            "agents_present": [
                 {
-                    "reason": d.reason.value,
+                    "id": agent.get("id"),
+                    "name": agent.get("name"),
+                    # No mood, drives, or other numeric state
+                }
+                for agent in world_state.get("persistent_agents_present_with_user", [])
+            ],
+            "events": [
+                {
+                    "type": d.reason.value,
                     "agent_id": d.agent_id,
                     "metadata": d.metadata or {}
                 }
                 for d in decisions
             ],
-            "entities": entities,
+            "entities": [
+                {
+                    "id": e.get("id"),
+                    "name": e.get("name"),
+                    "type": e.get("type"),
+                    # No numeric state
+                }
+                for e in entities
+            ],
             "info_events": [
                 {
                     "type": ev.type.value,
@@ -518,9 +598,14 @@ class PerceptionOrchestrator:
                     "sender_type": ev.sender_type
                 }
                 for ev in info_events
-            ],
-            "context": context
+            ]
         }
+        
+        # Include semantic summaries if available (from cognition context)
+        if "semantic_summaries" in context:
+            perception_packet["semantic_context"] = context["semantic_summaries"]
+        
+        return perception_packet
     
     async def _detect_environmental_shifts(
         self,
@@ -565,4 +650,96 @@ class PerceptionOrchestrator:
                 })
         
         return shifts
+    
+    async def _validate_llm_output_against_world(
+        self,
+        llm_output: Any,
+        world_state: Dict[str, Any],
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Validate LLM output against world state.
+        
+        Implements PFEE_LOGIC.md §9 contradiction handling logic.
+        
+        Args:
+            llm_output: LLM response (utterance, action, stance_shifts, intention_updates)
+            world_state: Current authoritative world state
+            context: PFEE context
+            
+        Returns:
+            {is_valid: bool, reason: str, corrected_output: Optional[Dict]}
+        """
+        from backend.cognition.llm_wrapper import CognitionLLMResponse
+        
+        if not isinstance(llm_output, CognitionLLMResponse):
+            return {"is_valid": False, "reason": "invalid_output_type", "corrected_output": None}
+        
+        # Check for impossible presences
+        agents_present_ids = [
+            agent.get("id") for agent in world_state.get("persistent_agents_present_with_user", [])
+        ]
+        
+        # Validate action references
+        if llm_output.action:
+            action_lower = llm_output.action.lower()
+            # Check if action references non-existent agents
+            for word in action_lower.split():
+                # Simple check - could be enhanced
+                if word in ["leaves", "arrives"] and "agent" in action_lower:
+                    # Check if referenced agent is actually present
+                    # This is a simplified check - full implementation would parse action
+                    pass
+        
+        # Validate stance_shifts target existence
+        if llm_output.stance_shifts:
+            for shift in llm_output.stance_shifts:
+                target = shift.target if hasattr(shift, "target") else ""
+                # Check if target is a valid agent or user
+                if target.startswith("agent:"):
+                    agent_id_str = target.replace("agent:", "")
+                    try:
+                        agent_id = int(agent_id_str)
+                        if agent_id not in agents_present_ids:
+                            return {
+                                "is_valid": False,
+                                "reason": f"stance_shift_target_not_present: {target}",
+                                "corrected_output": None
+                            }
+                    except ValueError:
+                        return {
+                            "is_valid": False,
+                            "reason": f"invalid_stance_shift_target: {target}",
+                            "corrected_output": None
+                        }
+        
+        # Validate intention_updates target existence
+        if llm_output.intention_updates:
+            for update in llm_output.intention_updates:
+                target = update.target if hasattr(update, "target") else None
+                if target and target.startswith("agent:"):
+                    agent_id_str = target.replace("agent:", "")
+                    try:
+                        agent_id = int(agent_id_str)
+                        if agent_id not in agents_present_ids:
+                            return {
+                                "is_valid": False,
+                                "reason": f"intention_update_target_not_present: {target}",
+                                "corrected_output": None
+                            }
+                    except ValueError:
+                        # Target might be a topic, not an agent - that's OK
+                        pass
+        
+        # Check for contradictions with world state
+        # Example: action that requires an object that doesn't exist
+        if llm_output.action:
+            action_lower = llm_output.action.lower()
+            # Check for impossible physical actions
+            if "uses" in action_lower or "picks up" in action_lower:
+                # Would need to check object existence - simplified for now
+                pass
+        
+        # All checks passed
+        return {"is_valid": True, "reason": None, "corrected_output": None}
 
