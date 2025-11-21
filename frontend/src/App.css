@@ -1,0 +1,55 @@
+/**
+ * App Component Styles
+ * 
+ * Per UI_SPEC.md:
+ * - Minimal, neutral styling
+ * - No emotional biasing
+ * - Clean typography hierarchy
+ * - Full-height layout for timeline
+ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.app-header {
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.app-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: var(--spacing-xs) 0 0 0;
+}
+
+.app-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive Layout */
+@media (min-width: 768px) {
+  .app {
+    max-width: 1200px;
+  }
+  
+  .app-header {
+    padding: var(--spacing-xl) var(--spacing-lg);
+  }
+}

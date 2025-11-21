@@ -1,0 +1,93 @@
+/**
+ * Accessibility Settings Styles
+ */
+
+.accessibility-settings__toggle {
+  position: fixed;
+  bottom: var(--spacing-md);
+  left: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  z-index: 998;
+}
+
+.accessibility-settings {
+  position: fixed;
+  bottom: 60px;
+  left: var(--spacing-md);
+  width: 300px;
+  max-height: 400px;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 999;
+  overflow-y: auto;
+}
+
+.accessibility-settings__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.accessibility-settings__header h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.accessibility-settings__close {
+  background: none;
+  border: none;
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+}
+
+.accessibility-settings__content {
+  padding: var(--spacing-md);
+}
+
+.accessibility-settings__group {
+  margin-bottom: var(--spacing-md);
+}
+
+.accessibility-settings__label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.accessibility-settings__slider {
+  width: 100%;
+}
+
+.accessibility-settings__select {
+  padding: var(--spacing-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.accessibility-settings__info {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.accessibility-settings__info ul {
+  margin: var(--spacing-xs) 0;
+  padding-left: var(--spacing-lg);
+}
+
+.accessibility-settings__info li {
+  margin-bottom: var(--spacing-xs);
+}
+

@@ -1,0 +1,156 @@
+/**
+ * PhoneOverlay Styles
+ * 
+ * Per UI_SPEC.md §8, §12:
+ * - Slides up over timeline
+ * - Dimmed background (neutral, no emotional tone)
+ * - Text-only, no fake phone frames
+ */
+
+.phone-overlay__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.phone-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 80vh;
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+.phone-overlay__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+}
+
+.phone-overlay__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.phone-overlay__close {
+  background: none;
+  border: none;
+  font-size: var(--font-size-2xl);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.phone-overlay__close:hover {
+  color: var(--color-text-primary);
+}
+
+.phone-overlay__content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.phone-overlay__nav {
+  width: 200px;
+  border-right: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+  padding: var(--spacing-md) 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.phone-overlay__nav-item {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.phone-overlay__nav-item:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.phone-overlay__nav-item--active {
+  background-color: var(--color-bg-tertiary);
+  border-left: 3px solid var(--color-accent);
+}
+
+.phone-overlay__badge {
+  display: inline-block;
+  margin-left: var(--spacing-xs);
+  padding: 2px 6px;
+  background-color: var(--color-accent);
+  color: var(--color-bg-primary);
+  border-radius: 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.phone-overlay__app {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.phone-overlay__empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .phone-overlay {
+    left: 50%;
+    right: auto;
+    width: 600px;
+    transform: translateX(-50%);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+

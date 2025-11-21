@@ -1,0 +1,26 @@
+/**
+ * ConnectionStatus Styles
+ * 
+ * Per UI_SPEC.md:
+ * - Neutral, unobtrusive
+ * - Small and subtle
+ */
+
+.connection-status {
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+}
+
+.connection-status--disconnected {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.connection-status--error {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-left: 2px solid var(--color-accent);
+}
+

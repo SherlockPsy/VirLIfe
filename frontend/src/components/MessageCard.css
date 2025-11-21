@@ -1,0 +1,114 @@
+/**
+ * MessageCard Styles
+ * 
+ * Per UI_SPEC.md §11:
+ * - Neutral styling
+ * - Clear visual hierarchy
+ * - No emotional biasing
+ * - Typography-based richness
+ * - Enhanced clarity for high-density scenes
+ */
+
+.message-card {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  border-left: 2px solid var(--color-border);
+  background-color: var(--color-bg-primary);
+  transition: background-color 0.1s ease;
+}
+
+.message-card:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+/* Perception Block */
+.message-card--perception {
+  border-left-color: var(--color-accent-light);
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.message-card__content--perception {
+  line-height: var(--line-height-relaxed);
+}
+
+/* Character Dialogue */
+.message-card--dialogue {
+  border-left-color: var(--color-accent);
+  margin-left: var(--spacing-md);
+}
+
+.message-card__speaker {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+/* High density: More prominent speaker labels */
+.timeline-view__container--high-density .message-card__speaker {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-sm);
+}
+
+.message-card__text {
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+}
+
+/* User Dialogue */
+.message-card--user_dialogue {
+  border-left-color: var(--color-accent);
+  margin-right: var(--spacing-md);
+  text-align: right;
+  background-color: var(--color-bg-secondary);
+}
+
+.message-card__content--user {
+  text-align: right;
+}
+
+/* System Line */
+.message-card--system {
+  border-left-color: var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: var(--spacing-xs) 0;
+}
+
+.message-card__content--system {
+  font-style: italic;
+}
+
+/* Phone Echo */
+.message-card--phone_echo {
+  border-left-color: var(--color-accent-light);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.message-card__phone-label {
+  font-weight: var(--font-weight-medium);
+  margin-right: var(--spacing-xs);
+}
+
+/* Timestamp */
+.message-card__timestamp {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-xs);
+  font-family: var(--font-family-mono);
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .message-card--dialogue {
+    margin-left: var(--spacing-xl);
+  }
+  
+  .message-card--user_dialogue {
+    margin-right: var(--spacing-xl);
+  }
+}

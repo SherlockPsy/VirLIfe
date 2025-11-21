@@ -1,0 +1,77 @@
+/**
+ * InputBar Styles
+ * 
+ * Per UI_SPEC.md:
+ * - Neutral styling
+ * - Clear, accessible
+ * - No emotional biasing
+ */
+
+.input-bar {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg-secondary);
+  flex-shrink: 0;
+}
+
+.input-bar__container {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-end;
+}
+
+.input-bar__input {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  resize: none;
+  min-height: 2.5rem;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.input-bar__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.input-bar__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-bar__send {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-bg-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  min-width: 80px;
+}
+
+.input-bar__send:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.input-bar__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-bar__hint {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+

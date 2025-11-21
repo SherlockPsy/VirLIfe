@@ -1,0 +1,196 @@
+/**
+ * Phone App Styles
+ * 
+ * Per UI_SPEC.md §12:
+ * - Text-only styling
+ * - Clean, readable layout
+ * - No decorative elements
+ */
+
+.phone-app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-app__empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.phone-app__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Messages */
+.phone-app__message {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.phone-app__message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.phone-app__sender {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.phone-app__timestamp {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+}
+
+.phone-app__message-content {
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+/* Calendar Events */
+.phone-app__event {
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-secondary);
+}
+
+.phone-app__event-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__event-description {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__event-time {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__event-location {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Email */
+.phone-app__email {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.phone-app__email-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.phone-app__email-subject {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__email-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.phone-app__email-body {
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+}
+
+/* Notes */
+.phone-app__note {
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-secondary);
+}
+
+.phone-app__note-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__note-content {
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+  white-space: pre-wrap;
+}
+
+.phone-app__note-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+}
+
+/* Social Posts */
+.phone-app__post {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.phone-app__post-author {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-xs);
+}
+
+.phone-app__post-content {
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+  white-space: pre-wrap;
+}
+
+.phone-app__post-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+}
+
+/* Settings */
+.phone-app__settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.phone-app__setting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.phone-app__setting-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.phone-app__setting-input {
+  width: auto;
+}
+
+.phone-app__setting-value {
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+}
+

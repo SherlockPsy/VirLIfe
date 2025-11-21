@@ -1,5 +1,8 @@
 import httpx
-from fastapi import FastAPI, HTTPException, Depends
+import json
+import asyncio
+from typing import Set
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from backend.config.settings import settings
@@ -28,6 +31,48 @@ except ImportError:
     QDRANT_AVAILABLE = False
 
 app = FastAPI(title=settings.app_name)
+
+# WebSocket connection manager
+class ConnectionManager:
+    """Manages WebSocket connections for real-time timeline events."""
+    
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+    
+    async def connect(self, websocket: WebSocket):
+        """Accept a new WebSocket connection."""
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        print(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+    
+    def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection."""
+        self.active_connections.discard(websocket)
+        print(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+    
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        """Send a message to a specific WebSocket connection."""
+        try:
+            await websocket.send_json(message)
+        except Exception as e:
+            print(f"Error sending WebSocket message: {e}")
+            self.disconnect(websocket)
+    
+    async def broadcast(self, message: dict):
+        """Broadcast a message to all connected WebSocket clients."""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                print(f"Error broadcasting to WebSocket: {e}")
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for connection in disconnected:
+            self.disconnect(connection)
+
+manager = ConnectionManager()
 
 # Lazy-load database engine
 _db_engine = None
@@ -205,3 +250,52 @@ async def render(
 async def status(db: AsyncSession = Depends(get_db)):
     """Get system status."""
     return await gateway_api.status(db)
+
+# ============================================================================
+# WEBSOCKET ENDPOINT (PHASE 10)
+# ============================================================================
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, user_id: int = None):
+    """
+    WebSocket endpoint for real-time timeline events.
+    
+    Per Plan.md Phase 10.3:
+    - Streams timeline events to connected clients
+    - Handles reconnection logic
+    - Broadcasts renderer output as events occur
+    
+    Query parameters:
+    - user_id: User ID for filtering events (optional)
+    """
+    await manager.connect(websocket)
+    
+    try:
+        # Send initial connection confirmation
+        await manager.send_personal_message({
+            "type": "connected",
+            "timestamp": int(asyncio.get_event_loop().time() * 1000),
+            "message": "WebSocket connected"
+        }, websocket)
+        
+        # Keep connection alive and handle incoming messages
+        while True:
+            # Wait for messages from client (heartbeat, etc.)
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                # Handle client messages if needed
+                # For now, just keep connection alive
+            except asyncio.TimeoutError:
+                # Send heartbeat to keep connection alive
+                await manager.send_personal_message({
+                    "type": "heartbeat",
+                    "timestamp": int(asyncio.get_event_loop().time() * 1000)
+                }, websocket)
+            except WebSocketDisconnect:
+                break
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        manager.disconnect(websocket)
