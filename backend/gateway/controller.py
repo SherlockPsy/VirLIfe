@@ -122,7 +122,7 @@ class GatewayController:
             }
             
             event = await self.world_repo.add_event(event_data)
-            logger.info(f"Created event: id={event.id}, type={event.event_type}")
+            logger.info(f"Created event: id={event.id}, type={event.type}")
             
             # Get agents in the same location (affected by user action)
             affected_agents = await self.agent_repo.list_agents_in_location(location_id)
