@@ -86,6 +86,28 @@ class AgentModel(Base):
     relationships = relationship("RelationshipModel", foreign_keys="[RelationshipModel.source_agent_id]", back_populates="source_agent")
     
     calendar_items = relationship("CalendarModel", back_populates="agent")
+    
+    # Properties for convenient access to mood components
+    @property
+    def mood_valence(self) -> float:
+        """Get valence component of mood."""
+        if isinstance(self.mood, dict):
+            return self.mood.get("valence", 0.0)
+        return 0.0
+    
+    @property
+    def mood_arousal(self) -> float:
+        """Get arousal component of mood."""
+        if isinstance(self.mood, dict):
+            return self.mood.get("arousal", 0.0)
+        return 0.0
+    
+    @property
+    def personality_summary(self) -> str:
+        """Get personality summary from personality_summaries."""
+        if isinstance(self.personality_summaries, dict):
+            return self.personality_summaries.get("stable", "")
+        return ""
 
 class RelationshipModel(Base):
     __tablename__ = "relationships"

@@ -134,6 +134,13 @@ class WorldRepo:
         stmt = select(EventModel).where(EventModel.world_id == world_id).order_by(EventModel.timestamp.desc()).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+    
+    async def delete_all_events(self, world_id: int):
+        """Delete all events for a world (useful for testing/cleanup)."""
+        from sqlalchemy import delete
+        stmt = delete(EventModel).where(EventModel.world_id == world_id)
+        await self.session.execute(stmt)
+        await self.session.flush()
 
 class UserRepo:
     def __init__(self, session: AsyncSession):

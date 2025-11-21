@@ -358,17 +358,17 @@ class RenderEngine:
         # Determine event description
         if current_event:
             event_description = self._describe_event(current_event)
-            event_type = current_event.event_type or "interaction"
+            event_type = current_event.type or "interaction"
         else:
             event_description = "The scene is quiet."
             event_type = "routine"
         
         # Check for incursions (unexpected events)
         perceivable_incursion = None
-        if current_event and current_event.event_type and "incursion" in current_event.event_type.lower():
+        if current_event and current_event.type and "incursion" in current_event.type.lower():
             perceivable_incursion = IncursionRenderer.prepare_incursion_context(
                 incursion_description=event_description,
-                incursion_type=current_event.event_type,
+                incursion_type=current_event.type,
                 perceiver_type=perceiver_type
             )
         

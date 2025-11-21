@@ -80,6 +80,9 @@ class TestWorldTickDeterminism:
         world.current_time = initial_time
         agent1.location_id = kitchen.id
         agent2.location_id = bedroom.id
+        
+        # Delete all events from first run to ensure determinism
+        await world_repo.delete_all_events(world.id)
         await db_session.commit()
         
         # Run tick N times again (5 ticks)
