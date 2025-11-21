@@ -13,7 +13,7 @@
  * - Will connect to backend in Phase 10.3
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { TimelineMessage } from '../types/timeline'
 import { calculateDensity, getAutoScrollDelay } from '../utils/interactionDensity'
 import MessageCard from './MessageCard'
@@ -29,9 +29,12 @@ export default function TimelineView({ messages, isLoading = false }: TimelineVi
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [userHasScrolled, setUserHasScrolled] = useState(false)
 
-  // Calculate density for auto-scroll timing
-  const density = calculateDensity(messages)
-  const autoScrollDelay = getAutoScrollDelay(density)
+  // Memoize density calculation to avoid recalculating on every render
+  const { density, autoScrollDelay } = useMemo(() => {
+    const density = calculateDensity(messages)
+    const autoScrollDelay = getAutoScrollDelay(density)
+    return { density, autoScrollDelay }
+  }, [messages])
 
   // Auto-scroll to bottom when new messages arrive (if user is at bottom)
   // Per UI_SPEC.md §6: Adjust timing based on density

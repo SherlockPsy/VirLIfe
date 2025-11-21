@@ -48,16 +48,28 @@ export class ApiClient {
       throw new Error(`Failed to fetch world snapshot: ${response.status} ${errorText}`)
     }
     
-    const backendData = await response.json()
+    let backendData
+    try {
+      backendData = await response.json()
+    } catch (error) {
+      throw new Error(`Failed to parse response: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
     
     // Convert backend RenderResponse to frontend format
     // Backend returns: { narrative, visible_agents, visible_objects, current_location_id, world_tick }
+    // Handle missing or malformed data gracefully
+    const narrative = backendData?.narrative || backendData?.content || 'No narrative available'
+    const locationId = backendData?.current_location_id ?? null
+    
     const data: RenderResponse = {
-      content: backendData.narrative || 'No narrative available',
-      timestamp: Date.now(),
-      type: 'perception',
+      content: narrative,
+      timestamp: backendData?.timestamp || Date.now(),
+      type: backendData?.type || 'perception',
+      speaker: backendData?.speaker,
+      speakerId: backendData?.speaker_id || backendData?.speakerId,
       metadata: {
-        location: `location_${backendData.current_location_id}`,
+        location: locationId ? `location_${locationId}` : undefined,
+        isIncursion: backendData?.metadata?.isIncursion || backendData?.is_incursion || false,
       },
     }
     
@@ -65,7 +77,7 @@ export class ApiClient {
     // TODO: Backend should provide full snapshot endpoint
     return {
       userId,
-      currentLocation: `location_${backendData.current_location_id || 'unknown'}`,
+      currentLocation: locationId ? `location_${locationId}` : 'unknown',
       recentMessages: [data],
       timestamp: Date.now(),
     }
@@ -136,9 +148,21 @@ export class WebSocketClient {
   private messageHandlers: Set<(message: TimelineMessage) => void> = new Set()
   private connectionHandlers: Set<(connected: boolean) => void> = new Set()
   private isConnecting = false
+  private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
+  private messageIdCounter = 0
 
   constructor(wsUrl: string = config.backendWsUrl) {
-    this.wsUrl = wsUrl.replace(/^http/, 'ws').replace(/\/$/, '')
+    // Handle both http/https and ws/wss URLs
+    if (wsUrl.startsWith('http://')) {
+      this.wsUrl = wsUrl.replace(/^http/, 'ws').replace(/\/$/, '')
+    } else if (wsUrl.startsWith('https://')) {
+      this.wsUrl = wsUrl.replace(/^https/, 'wss').replace(/\/$/, '')
+    } else if (wsUrl.startsWith('ws://') || wsUrl.startsWith('wss://')) {
+      this.wsUrl = wsUrl.replace(/\/$/, '')
+    } else {
+      // Default to wss if no protocol specified
+      this.wsUrl = `wss://${wsUrl.replace(/\/$/, '')}`
+    }
   }
 
   /**
@@ -165,11 +189,39 @@ export class WebSocketClient {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data)
-          const message = renderResponseToMessage(data, `ws-${Date.now()}-${Math.random()}`)
+          // Handle both string and already-parsed JSON
+          const data = typeof event.data === 'string' 
+            ? JSON.parse(event.data) 
+            : event.data
+          
+          // Generate unique message ID
+          this.messageIdCounter++
+          const messageId = `ws-${Date.now()}-${this.messageIdCounter}-${Math.random().toString(36).substr(2, 9)}`
+          
+          // Handle different message formats from backend
+          let message: TimelineMessage
+          if (data.type === 'connected' || data.type === 'heartbeat') {
+            // Skip connection/heartbeat messages - they're not timeline messages
+            return
+          } else if (data.narrative || data.content) {
+            // Backend RenderResponse format
+            message = renderResponseToMessage(data, messageId)
+          } else {
+            // Assume it's already a TimelineMessage-like object
+            message = {
+              id: messageId,
+              type: data.type || 'perception',
+              timestamp: data.timestamp || Date.now(),
+              content: data.content || data.narrative || JSON.stringify(data),
+              speaker: data.speaker,
+              speakerId: data.speakerId,
+              metadata: data.metadata,
+            }
+          }
+          
           this.notifyMessageHandlers(message)
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          console.error('Failed to parse WebSocket message:', error, event.data)
         }
       }
 
@@ -195,8 +247,20 @@ export class WebSocketClient {
    * Attempt to reconnect
    */
   private attemptReconnect(): void {
+    // Clear any existing reconnect timeout
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId)
+      this.reconnectTimeoutId = null
+    }
+
+    // Don't reconnect if already connected or connecting
+    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+      return
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached')
+      this.notifyConnectionHandlers(false)
       return
     }
 
@@ -205,7 +269,8 @@ export class WebSocketClient {
     
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`)
     
-    setTimeout(() => {
+    this.reconnectTimeoutId = setTimeout(() => {
+      this.reconnectTimeoutId = null
       this.connect()
     }, delay)
   }
@@ -214,11 +279,34 @@ export class WebSocketClient {
    * Disconnect WebSocket
    */
   disconnect(): void {
+    // Clear reconnect timeout
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId)
+      this.reconnectTimeoutId = null
+    }
+
+    // Close WebSocket connection
     if (this.ws) {
-      this.ws.close()
+      // Remove event handlers to prevent memory leaks
+      this.ws.onopen = null
+      this.ws.onmessage = null
+      this.ws.onerror = null
+      this.ws.onclose = null
+      
+      // Close connection
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close()
+      }
       this.ws = null
     }
+    
+    // Reset state
     this.reconnectAttempts = 0
+    this.isConnecting = false
+    
+    // Clear all handlers
+    this.messageHandlers.clear()
+    this.connectionHandlers.clear()
   }
 
   /**

@@ -13,7 +13,7 @@
  * - Neutral, continuous, real-time UI
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import TimelineView from './components/TimelineView'
 import InputBar from './components/InputBar'
 import ConnectionStatus from './components/ConnectionStatus'
@@ -39,6 +39,9 @@ function App() {
     disconnectWebSocket,
   } = useTimelineStore()
 
+  // Track if initial load has been attempted to prevent multiple loads
+  const hasLoadedSnapshot = useRef(false)
+
   // Initialize: Set user ID (for now, hardcoded to 1; will be from auth later)
   useEffect(() => {
     if (!userId) {
@@ -46,21 +49,23 @@ function App() {
     }
   }, [userId, setUserId])
 
-  // Load initial snapshot when user ID is set
+  // Load initial snapshot when user ID is set (only once)
   useEffect(() => {
-    if (userId) {
+    if (userId && !hasLoadedSnapshot.current) {
+      hasLoadedSnapshot.current = true
       loadInitialSnapshot()
     }
-  }, [userId, loadInitialSnapshot])
+  }, [userId]) // Removed loadInitialSnapshot from deps to prevent re-runs
 
-  // Connect WebSocket when component mounts
+  // Connect WebSocket when component mounts (only once)
   useEffect(() => {
     connectWebSocket()
     
     return () => {
       disconnectWebSocket()
     }
-  }, [connectWebSocket, disconnectWebSocket])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run on mount/unmount
 
   // Subscribe to timeline messages for TTS
   useEffect(() => {

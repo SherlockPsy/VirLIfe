@@ -33,10 +33,15 @@ export default function InputBar() {
     try {
       // Send as utterance (action will be parsed by backend)
       await sendUserAction('speak', message)
+      // Success - input already cleared
     } catch (error) {
       console.error('Failed to send message:', error)
-      // Restore input on error
+      // Restore input on error and show user feedback
       setInput(message)
+      
+      // Show error to user (could be enhanced with toast notification)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message'
+      alert(`Error: ${errorMessage}`) // TODO: Replace with proper error UI component
     } finally {
       setIsSending(false)
     }

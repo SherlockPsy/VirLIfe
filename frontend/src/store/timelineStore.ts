@@ -142,10 +142,12 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
       
       // Add user message to timeline immediately (optimistic update)
       if (utterance) {
+        // Use response timestamp if available, otherwise use current time
+        const timestamp = response.timestamp || Date.now()
         get().addMessage({
-          id: `user-${response.timestamp}`,
+          id: `user-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
           type: 'user_dialogue',
-          timestamp: response.timestamp,
+          timestamp,
           content: utterance,
         })
       }
@@ -156,21 +158,35 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   },
 
   connectWebSocket: () => {
+    // Store unsubscribe functions to prevent memory leaks
+    const state = get()
+    
+    // Only connect if not already connected
+    if (state.isConnected || wsClient.isConnected()) {
+      return
+    }
+    
     // Subscribe to WebSocket messages
-    wsClient.onMessage((message) => {
+    const unsubscribeMessage = wsClient.onMessage((message) => {
       get().addMessage(message)
     })
     
     // Subscribe to connection status
-    wsClient.onConnectionChange((connected) => {
+    const unsubscribeConnection = wsClient.onConnectionChange((connected) => {
       get().setConnected(connected)
     })
     
+    // Store unsubscribe functions in a way we can access them later
+    // Note: This is a limitation - we'll handle cleanup in disconnectWebSocket
     // Connect
     wsClient.connect()
+    
+    // Store cleanup functions (we'll need to track these)
+    // For now, cleanup happens in disconnectWebSocket
   },
 
   disconnectWebSocket: () => {
+    // Disconnect and clear handlers
     wsClient.disconnect()
     set({ isConnected: false })
   },

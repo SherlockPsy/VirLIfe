@@ -30,6 +30,7 @@ class TTSService {
   private speed: number = 1.0
   private readUserMessages: boolean = false
   private readPhoneMessages: boolean = false
+  private lastSpokenItem: TTSQueueItem | null = null
 
   constructor() {
     this.isEnabled = config.ttsEnabled && 'speechSynthesis' in window
@@ -185,6 +186,12 @@ class TTSService {
     utterance.volume = 1.0
 
     utterance.onend = () => {
+      // Store last spoken item for replay
+      const item = this.queue.find(i => i.text === text)
+      if (item) {
+        this.lastSpokenItem = item
+      }
+      
       this.isSpeaking = false
       this.currentUtterance = null
       this.processQueue()
@@ -199,7 +206,15 @@ class TTSService {
 
     this.currentUtterance = utterance
     this.isSpeaking = true
-    window.speechSynthesis.speak(utterance)
+    
+    try {
+      window.speechSynthesis.speak(utterance)
+    } catch (error) {
+      console.error('Failed to speak:', error)
+      this.isSpeaking = false
+      this.currentUtterance = null
+      this.processQueue()
+    }
   }
 
   /**
@@ -225,9 +240,20 @@ class TTSService {
    * Replay last line (if available)
    */
   replayLast(): void {
-    // This would require storing the last spoken item
-    // For now, just process queue if available
-    if (this.queue.length > 0 && !this.isSpeaking) {
+    if (!this.isEnabled || this.isMuted) {
+      return
+    }
+
+    if (this.lastSpokenItem) {
+      // Stop current speech if speaking
+      if (this.isSpeaking) {
+        this.stop()
+      }
+      // Add last spoken item back to front of queue
+      this.queue.unshift({ ...this.lastSpokenItem })
+      this.processQueue()
+    } else if (this.queue.length > 0 && !this.isSpeaking) {
+      // Fallback: process queue if available
       this.processQueue()
     }
   }
