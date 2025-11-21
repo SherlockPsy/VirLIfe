@@ -72,10 +72,14 @@ class QdrantService:
         self.client: Optional[QdrantClient] = None
         self.enabled = bool(self.qdrant_url)
         
-        if self.enabled:
-            logger.info(f"Qdrant vector memory enabled: {self.qdrant_url}")
+        if not self.enabled:
+            logger.warning(
+                "Qdrant not configured (QDRANT_URL env var missing). "
+                "Vector memory disabled. Set QDRANT_URL to enable semantic memory search on Railway. "
+                "The system will operate without vector search (Postgres-only retrieval)."
+            )
         else:
-            logger.warning("Qdrant not configured (QDRANT_URL env var missing). Vector memory disabled.")
+            logger.info(f"Qdrant vector memory configured: {self.qdrant_url}")
     
     async def connect(self) -> None:
         """

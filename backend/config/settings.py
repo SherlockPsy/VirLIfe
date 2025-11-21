@@ -17,23 +17,20 @@ class Settings(BaseSettings):
     @field_validator('database_url', mode='before')
     @classmethod
     def validate_database_url(cls, v):
-        # If no DATABASE_URL is set and we're in production, require it
+        # DATABASE_URL is always required - no SQLite fallback
         if not v:
-            if os.environ.get('RAILWAY_ENVIRONMENT_NAME') or os.environ.get('ENVIRONMENT') == 'production':
-                raise ValueError(
-                    "DATABASE_URL environment variable is required and must not be empty. "
-                    "Expected format: postgresql://user:password@host:port/database"
-                )
-            # In development/testing, provide SQLite fallback (file-based for persistence across sessions)
-            return "sqlite+aiosqlite:///./virlife.db"
+            raise ValueError(
+                "DATABASE_URL environment variable is required and must not be empty. "
+                "Expected format: postgresql://user:password@host:port/database "
+                "(Railway provides this automatically when Postgres service is linked)"
+            )
         
-        # Validate that we're not pointing to localhost in production
-        if (os.environ.get('RAILWAY_ENVIRONMENT_NAME') or os.environ.get('ENVIRONMENT') == 'production'):
-            if "localhost" in v or "127.0.0.1" in v:
-                raise ValueError(
-                    "DATABASE_URL points to localhost. On Railway, use the remote database URL. "
-                    "Check your environment variables."
-                )
+        # Ensure we're using Postgres, not SQLite
+        if v.startswith("sqlite"):
+            raise ValueError(
+                "SQLite is not supported. This application requires PostgreSQL. "
+                "Configure DATABASE_URL to point to a Railway Postgres service."
+            )
         
         return v
 
@@ -41,21 +38,17 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """
         Ensures the database URL uses the correct async driver (asyncpg).
-        Handles multiple URL formats:
+        Handles Railway Postgres URL formats:
         - postgres:// → postgresql+asyncpg://
         - postgresql:// → postgresql+asyncpg://
         """
         url = self.database_url
         
-        # SQLite doesn't need conversion
-        if url.startswith("sqlite"):
-            return url
-        
-        # Handle postgres:// (old Heroku format)
-        if url and url.startswith("postgres://"):
+        # Handle postgres:// (Railway/Heroku format)
+        if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         # Handle postgresql:// without asyncpg driver
-        elif url and url.startswith("postgresql://"):
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         
         return url

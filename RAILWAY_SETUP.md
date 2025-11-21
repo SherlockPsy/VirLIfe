@@ -3,6 +3,8 @@
 This document defines the **complete production architecture** for the Virtual World Backend on Railway.
 It covers the full system topology including the core backend, authoritative persistence (Postgres), optimization caching (Redis), and vector memory (Qdrant).
 
+**IMPORTANT:** This application is designed ONLY for Railway-managed services. SQLite and local-only databases are NOT supported.
+
 **Target State:** Phase 9 (Full Production)
 
 ---
@@ -65,6 +67,8 @@ These variables must be configured in the `virlife-backend` service.
 | Variable | Value / Description | Required |
 | :--- | :--- | :--- |
 | `DATABASE_URL` | `postgresql+asyncpg://...` (Link to `virlife-db`) | **YES** |
+
+**Note:** PostgreSQL is the ONLY supported database. SQLite is not supported. Railway automatically provides `DATABASE_URL` when you link a Postgres service.
 
 ### 3.3 Optimization (Redis)
 | Variable | Value / Description | Required |

@@ -206,7 +206,46 @@ The recommended build order is:
 Each subsystem MUST be tested against MASTER_SPEC.md.
 
 ======================================================================
-# 9. FINAL NOTE
+# 9. DEPLOYMENT AND INFRASTRUCTURE
+======================================================================
+
+**This application is designed to run exclusively on Railway with managed services.**
+
+### 9.1 Required Services
+
+All services are managed by Railway:
+- **PostgreSQL** - Authoritative database (required, no SQLite support)
+- **Redis** - Non-authoritative caching layer (optional, Phase 9+)
+- **Qdrant** - Vector memory for semantic search (optional, Phase 9+)
+
+### 9.2 Environment Variables
+
+Required environment variables from Railway:
+- `DATABASE_URL` - PostgreSQL connection string (Railway provides automatically)
+- `VENICE_API_KEY` - Venice.ai API key for LLM services
+- `VENICE_BASE_URL` - Venice API endpoint
+- `COGNITION_MODEL_ID` - Model ID for cognition processing
+- `RENDERER_MODEL_ID` - Model ID for perception rendering
+
+Optional (Phase 9+):
+- `REDIS_URL` - Redis connection string (Railway provides)
+- `QDRANT_URL` - Qdrant service URL (Railway provides)
+- `QDRANT_API_KEY` - Qdrant authentication key (if enabled)
+
+### 9.3 Local Development
+
+**Local development must connect to Railway services.**
+
+This application does NOT support local SQLite or local-only databases.
+To develop locally:
+1. Link to Railway project: `railway link`
+2. Use Railway environment variables: `railway run <command>`
+3. Or export Railway's `DATABASE_URL` to your local environment
+
+See `RAILWAY_SETUP.md` for complete deployment instructions.
+
+======================================================================
+# 10. FINAL NOTE
 ======================================================================
 
 MASTER_SPEC.md is not a suggestion.  

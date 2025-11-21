@@ -128,11 +128,16 @@ The endpoint checks:
 2. Verify `requirements.txt` is up to date
 3. Check Python version in `runtime.txt`
 
-## Migration from Local Development
+## Migration and Data Management
 
-1. Export local database schema (if needed)
-2. Railway will create fresh database on first deploy
-3. Use migration scripts if you have existing data
+Railway Postgres is the authoritative and only supported database.
+
+**Important:** This application does NOT support SQLite or local file-based databases. All development and production environments must use PostgreSQL (via Railway or a compatible Postgres service).
+
+For fresh deployments:
+1. Railway creates a new Postgres database automatically
+2. The application creates schema tables on first startup (via SQLAlchemy)
+3. Use migration scripts if you have existing data to import
 
 ## Next Steps
 

@@ -7,3 +7,6 @@ env/
 venv/
 .DS_Store
 .pytest_cache/
+*.db
+*.sqlite
+*.sqlite3

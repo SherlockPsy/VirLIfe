@@ -56,10 +56,14 @@ class RedisService:
         self.redis_client: Optional[redis.Redis] = None
         self.enabled = bool(self.redis_url)
         
-        if self.enabled:
-            logger.info(f"Redis caching enabled: {self.redis_url}")
+        if not self.enabled:
+            logger.warning(
+                "Redis not configured (REDIS_URL env var missing). "
+                "Caching disabled. Set REDIS_URL to enable Redis caching on Railway. "
+                "The system will operate without caching (Postgres-only mode)."
+            )
         else:
-            logger.warning("Redis not configured (REDIS_URL env var missing). Caching disabled.")
+            logger.info(f"Redis caching configured: {self.redis_url}")
     
     async def connect(self) -> None:
         """
