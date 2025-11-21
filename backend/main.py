@@ -89,20 +89,28 @@ class ConnectionManager:
     
     async def broadcast(self, message: dict):
         """Broadcast a message to all connected WebSocket clients."""
+        print(f"[WEBSOCKET] Broadcast called with {len(self.active_connections)} active connections")
+        print(f"[WEBSOCKET] Message: {message}")
+        
         if not self.active_connections:
+            print(f"[WEBSOCKET] No active connections - skipping broadcast")
             return
         
         disconnected = []
-        for connection in self.active_connections:
+        for i, connection in enumerate(self.active_connections):
             try:
+                print(f"[WEBSOCKET] Sending message to connection {i+1}/{len(self.active_connections)}")
                 await connection.send_json(message)
+                print(f"[WEBSOCKET] Successfully sent message to connection {i+1}")
             except Exception as e:
-                print(f"Error broadcasting to WebSocket: {e}")
+                print(f"[WEBSOCKET] Error broadcasting to WebSocket connection {i+1}: {e}")
                 disconnected.append(connection)
         
         # Remove disconnected clients
         for connection in disconnected:
             self.disconnect(connection)
+        
+        print(f"[WEBSOCKET] Broadcast complete. Active connections: {len(self.active_connections)}")
 
 manager = ConnectionManager()
 
