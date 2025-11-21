@@ -103,7 +103,8 @@ class RenderEngine:
                 user = await self.user_repo.get_user_by_name(f"user_{perceiver_id}")
                 if not user:
                     return "You are nowhere."
-                location_id = user.location_id if hasattr(user, 'location_id') else None
+                # UserModel doesn't have location_id, default to location 1
+                location_id = 1
             else:
                 agent = await self.agent_repo.get_agent_by_id(perceiver_id)
                 if not agent:
@@ -201,7 +202,8 @@ class RenderEngine:
                 user = await self.user_repo.get_user_by_name(f"user_{perceiver_id}")
                 if not user:
                     return "You are nowhere."
-                location_id = user.location_id if hasattr(user, 'location_id') else None
+                # UserModel doesn't have location_id, default to location 1
+                location_id = 1
             else:
                 agent = await self.agent_repo.get_agent_by_id(perceiver_id)
                 if not agent:

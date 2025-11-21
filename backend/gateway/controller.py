@@ -89,18 +89,19 @@ class GatewayController:
             world = await self.world_engine.get_or_create_world()
             
             # Get user location to find affected agents
+            # Note: UserModel doesn't have location_id, so we default to location 1
             user = await self.user_repo.get_user_by_name(f"user_{request.user_id}")
             if not user:
                 # Create user if doesn't exist
                 user = UserModel(
-                    name=f"user_{request.user_id}",
-                    location_id=1,  # Default location
-                    world_id=world.id
+                    name=f"user_{request.user_id}"
                 )
                 self.session.add(user)
                 await self.session.flush()
+                logger.info(f"Created new user: user_{request.user_id}")
             
-            location_id = user.location_id if hasattr(user, 'location_id') else 1
+            # Default to location 1 (UserModel doesn't track location)
+            location_id = 1
             
             # Create world event from user action
             event_description = request.text if request.text else f"User performs {request.action_type}"
@@ -299,18 +300,19 @@ class GatewayController:
             logger.info(f"Rendering for user_id={request.user_id}, pov={request.pov}")
             
             # Get or create user
+            # Note: UserModel doesn't have location_id, so we default to location 1
             user = await self.user_repo.get_user_by_name(f"user_{request.user_id}")
             if not user:
                 # Create user if doesn't exist
-                world = await self.world_engine.get_or_create_world()
                 user = UserModel(
-                    name=f"user_{request.user_id}",
-                    location_id=1,  # Default location
-                    world_id=world.id
+                    name=f"user_{request.user_id}"
                 )
                 self.session.add(user)
                 await self.session.flush()
                 logger.info(f"Created new user: user_{request.user_id}")
+            
+            # Default to location 1 (UserModel doesn't track location)
+            location_id = 1
             
             # Call renderer
             narrative = await self.render_engine.render_world_state(
@@ -324,7 +326,6 @@ class GatewayController:
             if not narrative or narrative == "The world is empty." or narrative == "You are nowhere.":
                 # Generate a default narrative
                 world = await self.world_engine.get_or_create_world()
-                location_id = user.location_id if hasattr(user, 'location_id') else 1
                 visible_agents = await self.agent_repo.list_agents_in_location(location_id)
                 
                 if visible_agents:
@@ -337,9 +338,6 @@ class GatewayController:
             
             # Get world state for response
             world = await self.world_engine.get_or_create_world()
-            
-            # Get user location
-            location_id = user.location_id if hasattr(user, 'location_id') else 1
             
             # Get visible agents
             visible_agents = await self.agent_repo.list_agents_in_location(location_id)
