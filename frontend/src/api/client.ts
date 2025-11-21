@@ -58,27 +58,47 @@ export class ApiClient {
     // Convert backend RenderResponse to frontend format
     // Backend returns: { narrative, visible_agents, visible_objects, current_location_id, world_tick }
     // Handle missing or malformed data gracefully
-    const narrative = backendData?.narrative || backendData?.content || 'No narrative available'
+    const narrative = backendData?.narrative || backendData?.content || ''
     const locationId = backendData?.current_location_id ?? null
     
-    const data: RenderResponse = {
-      content: narrative,
-      timestamp: backendData?.timestamp || Date.now(),
-      type: backendData?.type || 'perception',
-      speaker: backendData?.speaker,
-      speakerId: backendData?.speaker_id || backendData?.speakerId,
-      metadata: {
-        location: locationId ? `location_${locationId}` : undefined,
-        isIncursion: backendData?.metadata?.isIncursion || backendData?.is_incursion || false,
-      },
+    // Only create message if we have meaningful narrative content
+    const messages: RenderResponse[] = []
+    if (narrative && narrative.trim() && 
+        narrative !== 'The world is empty.' && 
+        narrative !== 'You are nowhere.' &&
+        narrative !== 'No narrative available') {
+      messages.push({
+        content: narrative,
+        timestamp: Date.now(),
+        type: 'perception',
+        speaker: undefined,
+        speakerId: undefined,
+        metadata: {
+          location: locationId ? `location_${locationId}` : undefined,
+          isIncursion: backendData?.metadata?.isIncursion || backendData?.is_incursion || false,
+        },
+      })
     }
     
-    // For now, return a snapshot with a single message
-    // TODO: Backend should provide full snapshot endpoint
+    // If no messages, create a default one
+    if (messages.length === 0) {
+      messages.push({
+        content: 'You find yourself in a quiet place. The world around you is still.',
+        timestamp: Date.now(),
+        type: 'perception',
+        speaker: undefined,
+        speakerId: undefined,
+        metadata: {
+          location: locationId ? `location_${locationId}` : undefined,
+          isIncursion: false,
+        },
+      })
+    }
+    
     return {
       userId,
       currentLocation: locationId ? `location_${locationId}` : 'unknown',
-      recentMessages: [data],
+      recentMessages: messages,
       timestamp: Date.now(),
     }
   }

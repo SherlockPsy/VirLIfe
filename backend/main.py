@@ -48,6 +48,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Set WebSocket broadcast function for gateway controller before including router
+from backend.gateway.routes import set_websocket_broadcast
+
+# Create async wrapper for broadcast
+async def broadcast_message(message: dict):
+    """Async wrapper for WebSocket broadcast."""
+    await manager.broadcast(message)
+
+set_websocket_broadcast(broadcast_message)
+
 # Include gateway router with /api/v1 prefix
 app.include_router(gateway_router)
 
@@ -79,6 +89,9 @@ class ConnectionManager:
     
     async def broadcast(self, message: dict):
         """Broadcast a message to all connected WebSocket clients."""
+        if not self.active_connections:
+            return
+        
         disconnected = []
         for connection in self.active_connections:
             try:

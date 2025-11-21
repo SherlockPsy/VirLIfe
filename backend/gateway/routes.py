@@ -14,6 +14,7 @@ Routes are registered in backend/main.py.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Callable, Optional
 
 from backend.persistence.database import AsyncSessionLocal
 from backend.gateway.controller import GatewayController
@@ -25,6 +26,13 @@ from backend.gateway.models import (
 
 router = APIRouter(prefix="/api/v1", tags=["gateway"])
 
+# Global WebSocket broadcast function (set by main.py)
+_websocket_broadcast: Optional[Callable] = None
+
+def set_websocket_broadcast(broadcast_fn: Callable):
+    """Set the WebSocket broadcast function."""
+    global _websocket_broadcast
+    _websocket_broadcast = broadcast_fn
 
 async def get_db():
     """Get database session for dependency injection."""
@@ -34,7 +42,7 @@ async def get_db():
 
 async def get_controller(db: AsyncSession = Depends(get_db)) -> GatewayController:
     """Get GatewayController instance."""
-    return GatewayController(db)
+    return GatewayController(db, websocket_broadcast=_websocket_broadcast)
 
 
 @router.post("/user/action", response_model=UserActionResponse)
