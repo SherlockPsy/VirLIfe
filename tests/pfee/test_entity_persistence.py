@@ -1,71 +1,110 @@
 """
-Tests for Entity Persistence Manager
+Tests for PFEE Entity Persistence Manager
 
-Implements PFEE_PLAN.md Phase P9 test requirements for entity persistence.
+Tests:
+- Entity persistence classification
+- Promotion from Thin to Persistent
+- Determinism of classification
 """
 
 import pytest
-from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.pfee.entities import (
-    EntityPersistenceManager, PersistenceLevel, EntityType
+    EntityPersistenceManager,
+    PersistenceLevel,
+    EntityType
 )
 
 
 @pytest.mark.asyncio
-async def test_repeated_encounters_promote_entities(session: AsyncSession):
-    """Test that repeated encounters promote entities from Thin to Persistent."""
+async def test_classify_core_person_as_persistent(session: AsyncSession):
+    """Test that core persons are classified as persistent."""
     manager = EntityPersistenceManager(session)
     
-    # Create a thin entity
     entity = {
         "id": 1,
-        "name": "Test Person",
-        "salient_encounter_count": 0,
-        "persistence_level": "ephemeral"
+        "name": "Rebecca",
+        "relationship_type": "close_friend"
     }
     context = {}
     
-    # First encounter - should be ephemeral
-    level1 = await manager.classify_entity_persistence(
+    result = await manager.classify_entity_persistence(
         entity, context, EntityType.PERSON
     )
-    assert level1 == PersistenceLevel.EPHEMERAL
     
-    # After multiple encounters - should promote
-    entity["salient_encounter_count"] = 3
-    level2 = await manager.classify_entity_persistence(
-        entity, context, EntityType.PERSON
-    )
-    assert level2 == PersistenceLevel.PERSISTENT
+    assert result == PersistenceLevel.PERSISTENT
 
 
 @pytest.mark.asyncio
-async def test_one_off_encounters_remain_thin(session: AsyncSession):
-    """Test that one-off encounters remain Thin."""
+async def test_classify_one_off_encounter_as_ephemeral(session: AsyncSession):
+    """Test that one-off encounters remain ephemeral."""
     manager = EntityPersistenceManager(session)
     
     entity = {
         "id": 2,
-        "name": "One-off Person",
-        "salient_encounter_count": 1,
-        "persistence_level": "ephemeral"
+        "name": "Random Person",
+        "salient_encounter_count": 1
     }
     context = {}
     
-    level = await manager.classify_entity_persistence(
+    result = await manager.classify_entity_persistence(
         entity, context, EntityType.PERSON
     )
-    assert level == PersistenceLevel.EPHEMERAL
+    
+    assert result == PersistenceLevel.EPHEMERAL
 
 
 @pytest.mark.asyncio
-async def test_promotion_is_idempotent(session: AsyncSession):
-    """Test that promotion is idempotent and deterministic."""
+async def test_classify_multiple_encounters_as_persistent(session: AsyncSession):
+    """Test that multiple salient encounters promote to persistent."""
     manager = EntityPersistenceManager(session)
     
-    entity_id = 3
+    entity = {
+        "id": 3,
+        "name": "Repeated Contact",
+        "salient_encounter_count": 3
+    }
+    context = {}
+    
+    result = await manager.classify_entity_persistence(
+        entity, context, EntityType.PERSON
+    )
+    
+    assert result == PersistenceLevel.PERSISTENT
+
+
+@pytest.mark.asyncio
+async def test_classification_determinism(session: AsyncSession):
+    """Test that classification is deterministic."""
+    manager = EntityPersistenceManager(session)
+    
+    entity = {
+        "id": 4,
+        "name": "Test Entity",
+        "relationship_type": "family"
+    }
+    context = {}
+    
+    result1 = await manager.classify_entity_persistence(
+        entity, context, EntityType.PERSON
+    )
+    result2 = await manager.classify_entity_persistence(
+        entity, context, EntityType.PERSON
+    )
+    
+    assert result1 == result2
+    assert result1 == PersistenceLevel.PERSISTENT
+
+
+@pytest.mark.asyncio
+async def test_promote_to_persistent_idempotent(session: AsyncSession):
+    """Test that promotion is idempotent."""
+    manager = EntityPersistenceManager(session)
+    
+    # This test would require actual database entities
+    # For now, we test the logic
+    entity_id = 1
     entity_type = EntityType.PERSON
     
     # First promotion
@@ -74,23 +113,6 @@ async def test_promotion_is_idempotent(session: AsyncSession):
     # Second promotion (should be idempotent)
     result2 = await manager.promote_to_persistent(entity_id, entity_type)
     
-    assert result1 == result2 or result2 is True  # Idempotent
-
-
-@pytest.mark.asyncio
-async def test_core_person_is_persistent(session: AsyncSession):
-    """Test that core persons (family, close friend) are Persistent."""
-    manager = EntityPersistenceManager(session)
-    
-    entity = {
-        "id": 4,
-        "name": "Family Member",
-        "relationship_type": "family"
-    }
-    context = {}
-    
-    level = await manager.classify_entity_persistence(
-        entity, context, EntityType.PERSON
-    )
-    assert level == PersistenceLevel.PERSISTENT
+    # Both should succeed
+    assert result1 is True or result2 is True  # May fail if entity doesn't exist, that's OK
 

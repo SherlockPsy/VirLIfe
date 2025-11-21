@@ -5,85 +5,58 @@ Implements:
 - PFEE_ARCHITECTURE.md §2.9
 - PFEE_PLAN.md Phase P8
 
-Provides internal logging and traceability for PFEE decisions.
+Internal logging and traceability for PFEE.
 """
 
-import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-from enum import Enum
+from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, Column, Integer, String, JSON, DateTime, Text
+from sqlalchemy.sql import func
+from datetime import datetime
+import json
+
+from backend.persistence.models import Base
 
 
-class PFEELogLevel(str, Enum):
-    """Log levels for PFEE."""
-    DEBUG = "debug"
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-
-
-# PFEELogModel is now defined in backend/persistence/models.py
-# Import it here for backward compatibility
-from backend.persistence.models import PFEELogModel
+class PFEELogModel(Base):
+    """Database model for PFEE logs."""
+    __tablename__ = "pfee_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    cycle_id = Column(String, nullable=True)  # UUID for perception cycle
+    log_type = Column(String, nullable=False)  # "trigger", "potential", "entity", "llm_call", "error", "cycle"
+    component = Column(String, nullable=False)  # Component name
+    message = Column(Text, nullable=True)
+    metadata = Column(JSON, default={}, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class PFEELogger:
     """
-    Internal logger for PFEE decisions and traces.
+    Internal logger for PFEE observability.
     
-    Logs are for system owner only, not part of in-world perception.
+    Logs are for system owner only, not visible to in-world user.
     """
-
-    def __init__(self, session: AsyncSession, enable_db_logging: bool = True):
+    
+    def __init__(self, session: AsyncSession):
         self.session = session
-        self.enable_db_logging = enable_db_logging
-        self.python_logger = logging.getLogger("pfee")
         self.current_cycle_id: Optional[str] = None
-
-    def start_perception_cycle(self, cycle_id: Optional[str] = None) -> None:
-        """Start a new perception cycle for logging."""
-        if not cycle_id:
-            import uuid
-            cycle_id = str(uuid.uuid4())
+    
+    def start_perception_cycle(self, cycle_id: str) -> None:
+        """Start a new perception cycle."""
         self.current_cycle_id = cycle_id
-
-    def log_perception_cycle(
-        self,
-        decisions: List[Dict[str, Any]],
-        resolved_potentials: List[Dict[str, Any]],
-        entities: List[Dict[str, Any]],
-        cognition_output: Optional[Dict[str, Any]],
-        renderer_output: Optional[Dict[str, Any]]
-    ) -> None:
-        """
-        Log a complete perception cycle.
-        
-        Implements PFEE_PLAN.md Phase P8 logging requirements.
-        """
-        self.log_info(
-            component="PerceptionOrchestrator",
-            event_type="perception_cycle",
-            message="Perception cycle completed",
-            metadata={
-                "decisions": decisions,
-                "resolved_potentials_count": len(resolved_potentials),
-                "entities_count": len(entities),
-                "cognition_called": cognition_output is not None,
-                "renderer_called": renderer_output is not None
-            }
-        )
-
+    
     def log_trigger_firing(
         self,
         trigger_reason: str,
         agent_id: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Log when a trigger fires."""
-        self.log_info(
+        """Log a trigger firing."""
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="trigger",
             component="TriggerEvaluator",
-            event_type="trigger_fired",
             message=f"Trigger fired: {trigger_reason}",
             metadata={
                 "trigger_reason": trigger_reason,
@@ -91,17 +64,19 @@ class PFEELogger:
                 **(metadata or {})
             }
         )
-
+        self.session.add(log_entry)
+    
     def log_potential_resolution(
         self,
         potential_id: int,
         potential_type: str,
-        resolved_entity: Optional[Dict[str, Any]] = None
+        resolved_entity: Dict[str, Any]
     ) -> None:
-        """Log when a potential is resolved."""
-        self.log_info(
+        """Log a potential resolution."""
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="potential",
             component="PotentialResolver",
-            event_type="potential_resolved",
             message=f"Potential resolved: {potential_type}",
             metadata={
                 "potential_id": potential_id,
@@ -109,7 +84,8 @@ class PFEELogger:
                 "resolved_entity": resolved_entity
             }
         )
-
+        self.session.add(log_entry)
+    
     def log_entity_classification(
         self,
         entity_id: int,
@@ -117,11 +93,12 @@ class PFEELogger:
         persistence_level: str,
         reason: str
     ) -> None:
-        """Log entity persistence classification."""
-        self.log_info(
+        """Log entity classification."""
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="entity",
             component="EntityPersistenceManager",
-            event_type="entity_classified",
-            message=f"Entity classified as {persistence_level}",
+            message=f"Entity classified: {persistence_level}",
             metadata={
                 "entity_id": entity_id,
                 "entity_type": entity_type,
@@ -129,106 +106,76 @@ class PFEELogger:
                 "reason": reason
             }
         )
-
-    def log_influence_field_update(
-        self,
-        agent_id: int,
-        updates: Dict[str, Any]
-    ) -> None:
-        """Log influence field updates."""
-        self.log_info(
-            component="InfluenceFieldManager",
-            event_type="influence_field_updated",
-            message=f"Influence field updated for agent {agent_id}",
-            metadata={
-                "agent_id": agent_id,
-                "updates": updates
-            }
-        )
-
+        self.session.add(log_entry)
+    
     def log_llm_call(
         self,
-        llm_type: str,  # "cognition" or "renderer"
+        llm_type: str,
         purpose: str,
-        agent_id: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        agent_id: Optional[int] = None
     ) -> None:
-        """Log LLM call."""
-        self.log_info(
-            component="LLM",
-            event_type="llm_call",
-            message=f"{llm_type} LLM called: {purpose}",
+        """Log an LLM call."""
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="llm_call",
+            component="PerceptionOrchestrator",
+            message=f"LLM call: {llm_type} for {purpose}",
             metadata={
                 "llm_type": llm_type,
                 "purpose": purpose,
-                "agent_id": agent_id,
-                **(metadata or {})
+                "agent_id": agent_id
             }
         )
-
-    def log_info(
-        self,
-        component: str,
-        event_type: str,
-        message: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Log info-level message."""
-        self._log(PFEELogLevel.INFO, component, event_type, message, metadata)
-
-    def log_warning(
-        self,
-        component: str,
-        event_type: str,
-        message: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Log warning-level message."""
-        self._log(PFEELogLevel.WARNING, component, event_type, message, metadata)
-
+        self.session.add(log_entry)
+    
     def log_error(
         self,
         component: str,
-        event_type: str,
+        error_type: str,
         message: str,
-        metadata: Optional[Dict[str, Any]] = None,
         exception: Optional[Exception] = None
     ) -> None:
-        """Log error-level message."""
-        error_metadata = metadata or {}
+        """Log an error."""
+        error_metadata = {
+            "error_type": error_type,
+            "message": message
+        }
         if exception:
             error_metadata["exception_type"] = type(exception).__name__
             error_metadata["exception_message"] = str(exception)
-        self._log(PFEELogLevel.ERROR, component, event_type, message, error_metadata)
-
-    def _log(
+        
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="error",
+            component=component,
+            message=f"Error: {error_type}",
+            metadata=error_metadata
+        )
+        self.session.add(log_entry)
+    
+    def log_perception_cycle(
         self,
-        level: PFEELogLevel,
-        component: str,
-        event_type: str,
-        message: str,
-        metadata: Optional[Dict[str, Any]] = None
+        triggers: List[Dict[str, Any]],
+        resolved_potentials: List[Dict[str, Any]],
+        entities: List[Dict[str, Any]],
+        cognition_output: Optional[Dict[str, Any]],
+        renderer_output: Optional[Dict[str, Any]]
     ) -> None:
-        """Internal logging method."""
-        # Python logger
-        log_message = f"[{component}] {message}"
-        if level == PFEELogLevel.ERROR:
-            self.python_logger.error(log_message, extra={"metadata": metadata})
-        elif level == PFEELogLevel.WARNING:
-            self.python_logger.warning(log_message, extra={"metadata": metadata})
-        else:
-            self.python_logger.info(log_message, extra={"metadata": metadata})
-
-        # Database logger (if enabled)
-        if self.enable_db_logging:
-            log_entry = PFEELogModel(
-                log_level=level.value,
-                cycle_id=self.current_cycle_id,
-                component=component,
-                event_type=event_type,
-                message=message,
-                metadata=metadata or {}
-            )
-            self.session.add(log_entry)
-            # Note: flush happens in orchestrator or caller
+        """Log complete perception cycle."""
+        log_entry = PFEELogModel(
+            cycle_id=self.current_cycle_id,
+            log_type="cycle",
+            component="PerceptionOrchestrator",
+            message="Perception cycle completed",
+            metadata={
+                "triggers": triggers,
+                "resolved_potentials": resolved_potentials,
+                "entities_instantiated": len(entities),
+                "cognition_called": cognition_output is not None,
+                "renderer_called": renderer_output is not None
+            }
+        )
+        self.session.add(log_entry)
+        # Flush to ensure log is persisted
+        # Note: actual commit happens in orchestrator
 
