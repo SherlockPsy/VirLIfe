@@ -287,6 +287,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int = None):
     Query parameters:
     - user_id: User ID for filtering events (optional)
     """
+    # Accept WebSocket connection (CORS is handled by middleware)
     await manager.connect(websocket)
     
     try:
