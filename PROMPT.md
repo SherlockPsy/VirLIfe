@@ -99,3 +99,5 @@ Begin by confirming:
 - summarising its sections very briefly (1–2 sentences per section),
 - and outlining your concrete plan of work in terms of repo files and steps.
 ```
+
+All required data files are located in backend/data_sources/. Do not relocate them.
