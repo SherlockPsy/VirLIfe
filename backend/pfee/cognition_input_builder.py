@@ -134,7 +134,7 @@ def build_cognition_input(
         memories=memories_dict,
         event_participants=event_participants,
         event_topics=_extract_event_topics(trigger, vantage_semantics),
-        event_triviality=EventTrivialityClassification.NON_TRIVIAL,  # Default, can be refined
+        event_triviality=EventTrivialityClassification.SIGNIFICANT,  # Default, can be refined
         behavioral_choices=[],  # Can be derived if needed
         relevant_calendar_context=None,  # Can be added if calendar items relevant
         relevant_unexpected_event_context=None,
