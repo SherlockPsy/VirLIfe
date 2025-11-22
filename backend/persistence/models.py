@@ -70,6 +70,9 @@ class AgentModel(Base):
     cached_context_fragments = Column(JSON, default={}, nullable=False)
     status_flags = Column(JSON, default={}, nullable=False)
     
+    # George protection flag (Section E)
+    is_real_user = Column(Boolean, default=False, nullable=False)
+    
     last_cognition_timestamp = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

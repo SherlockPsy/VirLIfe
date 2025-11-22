@@ -14,7 +14,7 @@ from backend.pfee.entities import EntityPersistenceManager, PersistenceLevel, En
 from backend.pfee.potentials import PotentialResolver, ResolvedPotential
 from backend.pfee.influence_fields import InfluenceFieldManager
 from backend.pfee.triggers import TriggerEvaluator, TriggerDecision, TriggerReason
-from backend.pfee.orchestrator import PerceptionOrchestrator, PerceptionResult
+from backend.pfee.orchestrator import PerceptionOrchestrator, PerceptionResult, run_perception_cycle
 from backend.pfee.consequences import ConsequenceIntegrator
 from backend.pfee.time_continuity import TimeAndContinuityManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
@@ -38,6 +38,7 @@ __all__ = [
     # Orchestrator (P4)
     "PerceptionOrchestrator",
     "PerceptionResult",
+    "run_perception_cycle",  # C.2: Top-level entry point
     # Consequences (P5)
     "ConsequenceIntegrator",
     # Time Continuity (P6)

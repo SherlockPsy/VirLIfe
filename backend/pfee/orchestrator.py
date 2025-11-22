@@ -23,7 +23,7 @@ from backend.pfee.influence_fields import InfluenceFieldManager
 from backend.pfee.info_events import InformationEventManager, InfoEvent
 from backend.pfee.logging import PFEELogger
 from backend.pfee.semantic_mapping import PFEESemanticMapper
-from backend.pfee.validation import ValidationResult, validate_llm_output_against_world
+from backend.pfee.validation import ValidationResult, validate_llm_output_against_world, validate_cognition_output
 
 from backend.cognition.service import CognitionService, SemanticCognitionInput
 from backend.mapping.semantic_mappers import PersonalityMapper
@@ -38,7 +38,12 @@ from backend.cognition.eligibility import (
 from backend.renderer.service import RenderEngine
 from backend.persistence.repo import WorldRepo, AgentRepo
 from backend.persistence.models import AgentModel, ArcModel, IntentionModel, MemoryModel
-from backend.pfee.world_state_builder import build_world_state_for_pfee
+from backend.pfee.world_state_builder import build_world_state, build_world_state_for_pfee
+from backend.pfee.semantic_mapping import PFEESemanticMapper
+from backend.pfee.cognition_input_builder import build_cognition_input
+from backend.pfee.validation import validate_cognition_output
+from backend.pfee.consequences import ConsequenceIntegrator
+from backend.persistence.models import WorldModel
 from sqlalchemy import select
 
 
@@ -841,5 +846,136 @@ class PerceptionOrchestrator:
         world_state: Dict[str, Any],
         context: Dict[str, Any]
     ) -> ValidationResult:
-        return validate_llm_output_against_world(llm_output, world_state, context)
+        """Legacy wrapper - delegates to validate_cognition_output."""
+        return validate_cognition_output(world_state, llm_output, context)
+
+
+# C.2: Top-level PFEE entry point as specified in Section C.2
+async def run_perception_cycle(
+    session: AsyncSession,
+    *,
+    world_id: int,
+    user_id: int,
+    trigger: Dict[str, Any]
+) -> PerceptionResult:
+    """
+    C.2: Top-level PFEE entry point.
+    
+    Implements Section C.2 of the blueprint:
+    - Builds world state using seeded data
+    - Maps to semantics
+    - Builds cognition input
+    - Calls cognition
+    - Validates output
+    - Integrates consequences
+    - Logs
+    
+    Args:
+        session: Async database session
+        world_id: World ID
+        user_id: User ID (for resolving George)
+        trigger: Dict with trigger_type, actor_agent_id, user_message, etc.
+    
+    Returns:
+        PerceptionResult with cycle results
+    """
+    # Load world
+    stmt = select(WorldModel).where(WorldModel.id == world_id)
+    result = await session.execute(stmt)
+    world = result.scalars().first()
+    if not world:
+        raise ValueError(f"World {world_id} not found")
+    
+    # C.3: Build world state using all seeded data
+    world_state = await build_world_state(
+        session,
+        world_id=world_id,
+        user_id=user_id,
+        trigger=trigger
+    )
+    
+    # C.4: Map world state to semantics
+    semantic_mapper = PFEESemanticMapper()
+    semantics = semantic_mapper.map_world_state_to_semantics(world_state)
+    
+    # C.5: Build cognition input
+    cognition_input = build_cognition_input(trigger, world_state, semantics)
+    
+    # Call cognition service (if available)
+    from backend.cognition.service import CognitionService
+    cognition_service = CognitionService()
+    
+    try:
+        # Call cognition service
+        # Note: process_semantic_cognition may need to be called differently
+        # For now, handle both sync and async cases
+        import inspect
+        if inspect.iscoroutinefunction(cognition_service.process_semantic_cognition):
+            cognition_result = await cognition_service.process_semantic_cognition(cognition_input)
+        else:
+            cognition_result = cognition_service.process_semantic_cognition(cognition_input)
+        
+        # C.6: Validate cognition output
+        if cognition_result.llm_response:
+            validation_result = validate_cognition_output(
+                world_state,
+                cognition_result.llm_response,
+                context={"trigger": trigger}
+            )
+            
+            # Extract cognition output from validated result
+            if validation_result.corrected_output:
+                cognition_output = validation_result.corrected_output
+            elif validation_result.is_valid:
+                # Use original output if valid
+                cognition_output = {
+                    "agent_id": cognition_result.agent_id,
+                    "utterance": cognition_result.llm_response.utterance,
+                    "action": cognition_result.llm_response.action,
+                    "stance_shifts": [
+                        {"target": s.target, "description": s.description}
+                        for s in (cognition_result.llm_response.stance_shifts or [])
+                    ],
+                    "intention_updates": [
+                        {"operation": u.operation, "type": u.type, "target": u.target,
+                         "description": u.description, "horizon": u.horizon}
+                        for u in (cognition_result.llm_response.intention_updates or [])
+                    ]
+                }
+            else:
+                cognition_output = None
+        else:
+            cognition_output = None
+            validation_result = None
+    except Exception as e:
+        # Log error but continue
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Cognition call failed: {e}", exc_info=True)
+        cognition_output = None
+        validation_result = None
+    
+    # C.7: Integrate consequences
+    consequence_integrator = ConsequenceIntegrator(session)
+    if cognition_output and validation_result:
+        await consequence_integrator.integrate_cognition_consequences(
+            world_state,
+            validation_result,
+            cognition_output
+        )
+    
+    # Build renderer output (simplified for now)
+    renderer_output = {
+        "text": cognition_output.get("utterance") if cognition_output else None,
+        "physical_changes": {}
+    }
+    
+    return PerceptionResult(
+        text=renderer_output.get("text"),
+        world_state=world_state,
+        cognition_output=cognition_output,
+        renderer_output=renderer_output,
+        triggers_fired=[],
+        entities_instantiated=[]
+    )
 
