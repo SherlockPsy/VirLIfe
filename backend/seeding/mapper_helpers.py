@@ -156,14 +156,26 @@ def load_connections_csv(file_path: Path) -> List[Dict[str, str]]:
 
 def load_baseline_txt(file_path: Path) -> str:
     """Load the baseline text file."""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+    # Try UTF-8 first, then fallback to latin-1 (which can decode any byte)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except UnicodeDecodeError:
+        # Fallback to latin-1 which can decode any byte sequence
+        with open(file_path, 'r', encoding='latin-1') as f:
+            return f.read()
 
 
 def load_george_profile_txt(file_path: Path) -> str:
     """Load George's profile text file."""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+    # Try UTF-8 first, then fallback to latin-1 (which can decode any byte)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except UnicodeDecodeError:
+        # Fallback to latin-1 which can decode any byte sequence
+        with open(file_path, 'r', encoding='latin-1') as f:
+            return f.read()
 
 
 def compute_archetype_blend(

@@ -76,7 +76,7 @@ async def seed_baseline_world(engine: AsyncEngine) -> None:
             # Step 2: Create or update baseline world row
             world_model = await _create_or_update_world(session)
             world_id = world_model.id
-            logger.info("Created/updated baseline world: ID=%d, name=%s", world_id, world_model.name)
+            logger.info("Created/updated baseline world: ID=%d", world_id)
             
             # Step 3: Seed locations and objects
             locations_map = await _seed_locations(session, world_id)
@@ -158,8 +158,8 @@ async def _create_or_update_world(session: AsyncSession) -> WorldModel:
     """Create or update the baseline world row."""
     logger.info("Creating/updating baseline world row...")
     
-    # Check if world already exists
-    stmt = select(WorldModel).where(WorldModel.name == BASELINE_WORLD_NAME)
+    # Check if world already exists (there should only be one world per database)
+    stmt = select(WorldModel).limit(1)
     result = await session.execute(stmt)
     existing_world = result.scalars().first()
     
@@ -179,7 +179,6 @@ async def _create_or_update_world(session: AsyncSession) -> WorldModel:
     else:
         # Create new world
         world = WorldModel(
-            name=BASELINE_WORLD_NAME,
             current_time=baseline_time,
             current_tick=0
         )
@@ -453,12 +452,115 @@ async def _create_agent(
     return agent
 
 
+def _is_meaningful_influence_connection(category: str, context: str) -> bool:
+    """
+    Determine if a connection qualifies for minimal agent creation per B.5.6.
+    
+    Returns True for:
+    - Family
+    - Very close friends
+    - Long-term collaborators (e.g., multiple projects, recurring co-stars)
+    """
+    category_lower = category.lower()
+    context_lower = context.lower()
+    
+    # Family always qualifies
+    if "family" in category_lower:
+        return True
+    
+    # Friends category qualifies
+    if "friend" in category_lower:
+        return True
+    
+    # Long-term collaborators: check for indicators of recurring collaboration
+    if "longtime" in context_lower or "long-term" in context_lower:
+        return True
+    if "multiple" in context_lower or "recurring" in context_lower:
+        return True
+    if "creative partner" in context_lower or "deep collaboration" in context_lower:
+        return True
+    
+    # Directors with strong trust/respect are likely long-term collaborators
+    if category_lower == "director" and ("trust" in context_lower or "partner" in context_lower):
+        return True
+    
+    return False
+
+
+async def _create_minimal_agent_for_connection(
+    session: AsyncSession,
+    world_id: int,
+    name: str,
+    category: str,
+    context: str,
+    agents_map: Dict[str, AgentModel]
+) -> AgentModel:
+    """
+    Create a minimal agent for a connection from CSV per B.5.6.
+    
+    For meaningful influence connections (family/close friends/long-term collaborators):
+    - Creates agent with minimal but consistent personality_kernel, drives, status_flags
+    
+    For other connections:
+    - Creates very basic agent (name only, minimal personality)
+    """
+    # Check if agent already exists
+    if name in agents_map:
+        return agents_map[name]
+    
+    # Determine if this qualifies for minimal agent with personality
+    is_meaningful = _is_meaningful_influence_connection(category, context)
+    
+    if is_meaningful:
+        # Create minimal agent with personality per B.5.6
+        # Use a neutral archetype blend for supporting agents
+        personality_kernel = {
+            "archetype_blend": {
+                "neutral": 1.0
+            },
+            "core_traits": []
+        }
+        drives = {
+            "survival": 0.5,
+            "social": 0.5,
+            "achievement": 0.5
+        }
+        status_flags = {
+            "seeded_from": "connections_csv",
+            "category": category,
+            "is_supporting_agent": True
+        }
+    else:
+        # Very basic agent for other connections
+        personality_kernel = {}
+        drives = {}
+        status_flags = {
+            "seeded_from": "connections_csv",
+            "category": category,
+            "is_background_agent": True
+        }
+    
+    agent = await _create_agent(
+        session,
+        world_id=world_id,
+        name=name,
+        is_real_user=False,
+        role="supporting" if is_meaningful else "background",
+        personality_kernel=personality_kernel,
+        drives=drives,
+        status_flags=status_flags
+    )
+    
+    agents_map[name] = agent
+    return agent
+
+
 async def _seed_relationships(
     session: AsyncSession,
     agents_map: Dict[str, AgentModel],
     world_id: int
 ) -> None:
-    """Seed relationships from connections CSV and baseline."""
+    """Seed relationships from connections CSV and baseline per B.6.1."""
     logger.info("Seeding relationships...")
     
     # Get or create User record for George
@@ -475,7 +577,7 @@ async def _seed_relationships(
     lucy_agent = agents_map.get("Lucy")
     nadine_agent = agents_map.get("Nadine")
     
-    # 1. Rebecca -> George (override with high values from baseline)
+    # 1. Rebecca -> George (override with high values from baseline per B.6.1.3)
     rel_rebecca_george = RelationshipModel(
         source_agent_id=rebecca_agent.id,
         target_user_id=george_user.id,
@@ -490,19 +592,33 @@ async def _seed_relationships(
     session.add(rel_rebecca_george)
     logger.info("  - Created relationship: Rebecca -> George (high warmth/trust/attraction)")
     
-    # 2. Rebecca -> connections from CSV
+    # 2. Rebecca -> connections from CSV per B.6.1
     connections_data = map_connections_to_relationships()
+    relationships_created = 0
+    
     for conn in connections_data:
         target_name = conn["target_name"]
-        # Find or create target agent (simplified - in full implementation, would create agents)
-        # For now, skip non-existent agents
-        if target_name not in agents_map:
-            # Could create supporting agents here
+        category = conn.get("category", "")
+        context = conn.get("context", "")
+        
+        # Skip if this is George (already handled above)
+        if target_name == "George":
             continue
         
-        target_agent = agents_map[target_name]
+        # Find or create target agent per B.6.1.1
+        target_agent = await _create_minimal_agent_for_connection(
+            session,
+            world_id,
+            target_name,
+            category,
+            context,
+            agents_map
+        )
+        
+        # Get relationship vector
         rel_vector = conn["relationship_vector"]
         
+        # Create relationship per B.6.1.2
         rel = RelationshipModel(
             source_agent_id=rebecca_agent.id,
             target_agent_id=target_agent.id,
@@ -515,6 +631,9 @@ async def _seed_relationships(
             comfort=rel_vector.get("comfort", 0.5)
         )
         session.add(rel)
+        relationships_created += 1
+    
+    logger.info("  - Created %d relationships from Connections CSV", relationships_created)
     
     # 3. Lucy <-> George (parent-child)
     if lucy_agent:
@@ -805,7 +924,7 @@ async def _log_seeding_summary(session: AsyncSession, world_id: int) -> None:
     result = await session.execute(stmt)
     world = result.scalars().first()
     if world:
-        logger.info("World: %s (ID=%d)", world.name, world.id)
+        logger.info("World: ID=%d", world.id)
         logger.info("  - Current time: %s", world.current_time)
         logger.info("  - Current tick: %d", world.current_tick)
     
