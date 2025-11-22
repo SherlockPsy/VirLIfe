@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.pfee.world_state_builder import build_world_state
-from backend.pfee.semantic_mapping import build_semantic_frame
+from backend.pfee.semantic_mapping import PFEESemanticMapper
 
 
 class TestSemanticMapping:
@@ -27,10 +27,8 @@ class TestSemanticMapping:
             world_id=world_id
         )
         
-        semantic_frame = await build_semantic_frame(
-            test_session,
-            world_state=world_state
-        )
+        mapper = PFEESemanticMapper()
+        semantic_frame = mapper.map_world_state_to_semantics(world_state)
         
         # Find Rebecca in semantic frame
         rebecca_semantic = None
@@ -61,10 +59,8 @@ class TestSemanticMapping:
             world_id=world_id
         )
         
-        semantic_frame = await build_semantic_frame(
-            test_session,
-            world_state=world_state
-        )
+        mapper = PFEESemanticMapper()
+        semantic_frame = mapper.map_world_state_to_semantics(world_state)
         
         semantic_text = str(semantic_frame)
         
@@ -86,10 +82,8 @@ class TestSemanticMapping:
             world_id=world_id
         )
         
-        semantic_frame = await build_semantic_frame(
-            test_session,
-            world_state=world_state
-        )
+        mapper = PFEESemanticMapper()
+        semantic_frame = mapper.map_world_state_to_semantics(world_state)
         
         semantic_text = str(semantic_frame).lower()
         
@@ -122,10 +116,8 @@ class TestSemanticMapping:
             world_id=world_id
         )
         
-        semantic_frame = await build_semantic_frame(
-            test_session,
-            world_state=world_state
-        )
+        mapper = PFEESemanticMapper()
+        semantic_frame = mapper.map_world_state_to_semantics(world_state)
         
         # Find George in semantic frame
         george_semantic = None

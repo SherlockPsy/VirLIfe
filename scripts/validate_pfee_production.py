@@ -353,7 +353,7 @@ async def main():
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
     
-    engine = create_async_engine(db_url, echo=False)
+    engine = create_async_engine(db_url, echo=False, connect_args={"ssl": False})
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     try:

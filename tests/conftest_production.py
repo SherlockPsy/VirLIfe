@@ -6,7 +6,6 @@ ONLY USE FOR DESTRUCTIVE TESTING - tests will wipe and reseed production.
 """
 
 import pytest
-import pytest_asyncio
 import asyncio
 import os
 from typing import AsyncGenerator
@@ -36,13 +35,12 @@ elif PRODUCTION_DATABASE_URL.startswith("postgres://"):
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the test session."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """
     Create a test database engine using PRODUCTION database.
@@ -50,20 +48,13 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     WARNING: This uses the production Railway database.
     Tests will wipe and reseed this database.
     """
-    # Add sslmode=disable to URL if not present
-    db_url = PRODUCTION_DATABASE_URL
-    if "sslmode=" not in db_url:
-        separator = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{separator}sslmode=disable"
-    
     engine = create_async_engine(
-        db_url,
+        PRODUCTION_DATABASE_URL,
         echo=False,
         pool_size=5,
         max_overflow=5,
         pool_recycle=3600,
-        pool_pre_ping=True,
-        connect_args={"ssl": False}  # Disable SSL for asyncpg
+        pool_pre_ping=True
     )
     
     # Create all tables (if they don't exist)
@@ -76,60 +67,51 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     """
     Create a test database session using PRODUCTION database.
     """
     async_session_maker = async_sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
+        test_engine, class_=AsyncSession, expire_on_commit=False
     )
     
     async with async_session_maker() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        yield session
         # NOTE: We commit changes in production tests (they're meant to be destructive)
 
 
-@pytest_asyncio.fixture
-async def seeded_world(test_engine: AsyncEngine) -> dict:
+@pytest.fixture
+async def seeded_world(test_session: AsyncSession, test_engine: AsyncEngine) -> dict:
     """
     Seed the baseline world in PRODUCTION database and return world metadata.
     
     WARNING: This will WIPE and reseed the production database.
     """
-    # Wipe and reseed production (uses its own session)
+    # Wipe and reseed production
     await seed_baseline_world(test_engine)
     
-    # Query to get IDs using a new session
-    async_session_maker = async_sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    async with async_session_maker() as session:
-        from sqlalchemy import select
-        
-        # Get world
-        stmt = select(WorldModel)
-        result = await session.execute(stmt)
-        world = result.scalars().first()
-        
-        # Get agents
-        stmt = select(AgentModel)
-        result = await session.execute(stmt)
-        agents = result.scalars().all()
-        
-        agent_map = {agent.name: agent for agent in agents}
-        
-        return {
-            "world_id": world.id if world else None,
-            "george_agent_id": agent_map.get("George").id if "George" in agent_map else None,
-            "rebecca_agent_id": agent_map.get("Rebecca Ferguson").id if "Rebecca Ferguson" in agent_map else None,
-            "lucy_agent_id": agent_map.get("Lucy").id if "Lucy" in agent_map else None,
-            "nadine_agent_id": agent_map.get("Nadine").id if "Nadine" in agent_map else None,
-            "agents": agent_map
-        }
+    # Query to get IDs
+    from sqlalchemy import select
+    
+    # Get world
+    stmt = select(WorldModel)
+    result = await test_session.execute(stmt)
+    world = result.scalars().first()
+    
+    # Get agents
+    stmt = select(AgentModel)
+    result = await test_session.execute(stmt)
+    agents = result.scalars().all()
+    
+    agent_map = {agent.name: agent for agent in agents}
+    
+    return {
+        "world_id": world.id if world else None,
+        "george_agent_id": agent_map.get("George").id if "George" in agent_map else None,
+        "rebecca_agent_id": agent_map.get("Rebecca Ferguson").id if "Rebecca Ferguson" in agent_map else None,
+        "lucy_agent_id": agent_map.get("Lucy").id if "Lucy" in agent_map else None,
+        "nadine_agent_id": agent_map.get("Nadine").id if "Nadine" in agent_map else None,
+        "agents": agent_map
+    }
 

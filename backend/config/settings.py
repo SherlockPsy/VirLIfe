@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         Handles Railway Postgres URL formats:
         - postgres:// → postgresql+asyncpg://
         - postgresql:// → postgresql+asyncpg://
+        Adds sslmode=disable for Railway connections.
         """
         url = self.database_url
         
@@ -47,6 +48,11 @@ class Settings(BaseSettings):
         # Handle postgresql:// without asyncpg driver
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        
+        # Add sslmode=disable if not already present
+        if "sslmode=" not in url:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}sslmode=disable"
         
         return url
 

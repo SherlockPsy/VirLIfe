@@ -145,10 +145,24 @@ async def _wipe_existing_data(session: AsyncSession) -> None:
     
     for table_name in tables_to_wipe:
         try:
-            await session.execute(text(f"DELETE FROM {table_name}"))
+            # Use CASCADE or handle FK constraints
+            # For PostgreSQL, we need to delete in order or use CASCADE
+            if table_name in ["agents", "locations", "worlds"]:
+                # These have foreign keys pointing to them, so we need CASCADE
+                await session.execute(text(f"DELETE FROM {table_name} CASCADE"))
+            else:
+                await session.execute(text(f"DELETE FROM {table_name}"))
             logger.info("  - Deleted all rows from %s", table_name)
         except Exception as e:
             logger.warning("  - Could not delete from %s: %s", table_name, e)
+            # Rollback and retry without CASCADE for tables that don't support it
+            try:
+                await session.rollback()
+                # Retry with regular delete
+                await session.execute(text(f"DELETE FROM {table_name}"))
+                logger.info("  - Deleted all rows from %s (retry)", table_name)
+            except Exception as e2:
+                logger.warning("  - Retry also failed for %s: %s", table_name, e2)
     
     await session.flush()
     logger.info("Data wipe completed")

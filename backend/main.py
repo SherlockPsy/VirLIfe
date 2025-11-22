@@ -127,7 +127,8 @@ async def get_db_engine():
             pool_size=5,
             max_overflow=5,
             pool_recycle=3600,  # Recycle connections every hour
-            pool_pre_ping=True  # Verify connection before using
+            pool_pre_ping=True,  # Verify connection before using
+            connect_args={"ssl": False}  # Disable SSL for Railway
         )
     return _db_engine
 

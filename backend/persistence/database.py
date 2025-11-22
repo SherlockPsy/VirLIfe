@@ -5,6 +5,7 @@ from backend.config.settings import settings
 # Create async engine
 engine = create_async_engine(
     settings.async_database_url,
+    connect_args={"ssl": False},  # Disable SSL for Railway
     echo=settings.environment == "development",
     future=True,
 )
