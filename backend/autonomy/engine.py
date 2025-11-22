@@ -22,7 +22,13 @@ class AutonomyEngine:
         """
         Main entry point for updating an agent's internal state based on recent events.
         Should be called every tick or when processing events.
+        
+        Section E.8.2: George MUST NEVER be included in any internal state updates.
         """
+        # E.8.2: George protection - skip all updates for real user
+        if agent.is_real_user:
+            return  # George has no simulated internal state
+        
         # 1. Calculate Drive Changes
         drive_deltas = self._calculate_drive_deltas(agent, events)
         

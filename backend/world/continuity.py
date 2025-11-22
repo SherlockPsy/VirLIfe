@@ -39,7 +39,14 @@ class ContinuityEngine:
         """
         Checks if agent needs to move based on routine.
         Returns target_location_id if movement is needed, else None.
+        
+        Section E.9.1: Do NOT modify George's internal state. Only update world time.
+        George's physical location is respected as-is (only user actions move him).
         """
+        # E.9.1: George protection - do not apply routine-based movement to real user
+        if agent.is_real_user:
+            return None  # George's location is controlled by user actions only
+        
         # If agent is "busy" or in a specific interaction, we might skip (Autonomy handles that later).
         # For Phase 2, we enforce the routine strictly for off-screen agents.
         

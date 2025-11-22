@@ -67,7 +67,26 @@ Add the following environment variables in Railway:
 2. Or trigger manual deployment from dashboard
 3. Check deployment logs for any errors
 
-### 6. Verify Deployment
+### 6. Seed the Baseline World
+
+**IMPORTANT:** After deployment, you MUST seed the database with baseline world data.
+
+1. **Open Railway Dashboard** → Your backend service → **Deployments** tab
+2. Click **"Run Command"** button
+3. In the command field, type:
+   ```
+   python scripts/seed_world.py
+   ```
+4. Click **"Run"**
+5. Wait for the confirmation message: `✅ SEEDING COMPLETE`
+6. Check the output to verify all data was seeded successfully
+
+**⚠️ WARNING:** This will DELETE all existing data and re-seed the baseline world. Only run this:
+- Once after initial deployment
+- When you intentionally want to reset everything to baseline state
+- **NEVER run this again unless you want to wipe all user data**
+
+### 7. Verify Deployment
 
 1. Check health endpoint:
    ```bash
@@ -78,6 +97,8 @@ Add the following environment variables in Railway:
    ```bash
    curl https://your-app.railway.app/health/full
    ```
+
+3. Verify baseline world exists (check Railway logs or query database)
 
 ## Service Architecture
 
@@ -128,16 +149,26 @@ The endpoint checks:
 2. Verify `requirements.txt` is up to date
 3. Check Python version in `runtime.txt`
 
-## Migration and Data Management
+## Database Seeding
 
 Railway Postgres is the authoritative and only supported database.
 
 **Important:** VirLife runs only on Railway-managed Postgres/Redis/Qdrant. No local DB is supported. This application does NOT support SQLite or local file-based databases. All development and production environments must use PostgreSQL via Railway-managed services.
 
+### Seeding Process
+
 For fresh deployments:
 1. Railway creates a new Postgres database automatically
 2. The application creates schema tables on first startup (via SQLAlchemy)
-3. Use migration scripts if you have existing data to import
+3. **You must seed the baseline world data** using Railway's "Run Command" feature (see Step 6 above)
+
+The seeding script (`scripts/seed_world.py`) is **ONLY accessible from within Railway's private environment**. It is:
+- ✅ Safe: Cannot be accessed over the internet
+- ✅ Private: Only runs inside Railway containers
+- ✅ Simple: One-click execution via Railway GUI
+- ✅ Secure: No secrets or API keys needed
+
+**The seeding script is NOT exposed as a web endpoint** and cannot be triggered by external requests.
 
 ## Next Steps
 

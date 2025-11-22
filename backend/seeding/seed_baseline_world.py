@@ -104,11 +104,14 @@ async def seed_baseline_world(engine: AsyncEngine) -> None:
             # Step 10: Set initial positions for agents
             await _set_initial_positions(session, agents_map, locations_map)
             
-            # Step 11: Commit all changes
+            # Step 11: E.1.4 - Explicitly zero George's psychological fields (final cleanup)
+            await _cleanup_george_psychological_fields(session, agents_map)
+            
+            # Step 12: Commit all changes
             await session.commit()
             logger.info("All changes committed successfully")
             
-            # Step 12: Log summary
+            # Step 13: Log summary
             await _log_seeding_summary(session, world_id)
             
             logger.info("=" * 80)
@@ -749,6 +752,44 @@ async def _set_initial_positions(
     
     await session.flush()
     logger.info("  - Initial positions set")
+
+
+async def _cleanup_george_psychological_fields(
+    session: AsyncSession,
+    agents_map: Dict[str, AgentModel]
+) -> None:
+    """
+    E.1.4: Explicitly zero George's psychological fields before final commit.
+    
+    This ensures that even if any seeding step accidentally populated these fields,
+    they are guaranteed to be empty for George.
+    """
+    logger.info("Cleaning up George's psychological fields (E.1.4)...")
+    
+    george = agents_map.get("George")
+    if not george:
+        logger.warning("  - George agent not found, skipping cleanup")
+        return
+    
+    # E.1.3: Explicitly set all forbidden fields to empty/null
+    george.personality_kernel = {}
+    george.personality_summaries = {}
+    george.drives = {}
+    george.mood = {}
+    # domain_summaries can contain ONLY public facts (optional)
+    # For now, we'll set it to empty dict to be safe
+    george.domain_summaries = {}
+    
+    # Ensure status_flags has is_real_user = True
+    if not isinstance(george.status_flags, dict):
+        george.status_flags = {}
+    george.status_flags["is_real_user"] = True
+    
+    # Ensure is_real_user flag is set on the model
+    george.is_real_user = True
+    
+    await session.flush()
+    logger.info("  - George's psychological fields explicitly zeroed (E.1.4)")
 
 
 async def _log_seeding_summary(session: AsyncSession, world_id: int) -> None:
