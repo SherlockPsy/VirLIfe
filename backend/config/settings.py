@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         Handles Railway Postgres URL formats:
         - postgres:// → postgresql+asyncpg://
         - postgresql:// → postgresql+asyncpg://
-        Adds sslmode=disable for Railway connections.
+        Note: SSL is disabled via connect_args, not URL parameters.
         """
         url = self.database_url
         
@@ -49,10 +49,15 @@ class Settings(BaseSettings):
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         
-        # Add sslmode=disable if not already present
-        if "sslmode=" not in url:
-            separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}sslmode=disable"
+        # Remove sslmode from URL if present (we use connect_args instead)
+        if "sslmode=" in url:
+            from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+            parsed = urlparse(url)
+            query_params = parse_qs(parsed.query)
+            query_params.pop('sslmode', None)
+            new_query = urlencode(query_params, doseq=True)
+            parsed = parsed._replace(query=new_query)
+            url = urlunparse(parsed)
         
         return url
 

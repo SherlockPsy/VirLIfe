@@ -50,11 +50,22 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     WARNING: This uses the production Railway database.
     Tests will wipe and reseed this database.
     """
-    # Add sslmode=disable to URL if not present
+    # Convert to asyncpg format and remove sslmode from URL (we use connect_args instead)
     db_url = PRODUCTION_DATABASE_URL
-    if "sslmode=" not in db_url:
-        separator = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{separator}sslmode=disable"
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    
+    # Remove sslmode from URL if present (we use connect_args instead)
+    if "sslmode=" in db_url:
+        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+        parsed = urlparse(db_url)
+        query_params = parse_qs(parsed.query)
+        query_params.pop('sslmode', None)
+        new_query = urlencode(query_params, doseq=True)
+        parsed = parsed._replace(query=new_query)
+        db_url = urlunparse(parsed)
     
     engine = create_async_engine(
         db_url,
